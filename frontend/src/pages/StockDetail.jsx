@@ -19,11 +19,11 @@ export default function StockDetail() {
   const [loadingSentiment, setLoadingSentiment] = useState(false);
   const [sentimentError, setSentimentError] = useState(null);
 
-  const fetchSentiment = async () => {
+  const fetchSentiment = async (isRefresh = false) => {
     setLoadingSentiment(true);
     setSentimentError(null);
     try {
-      const { data } = await api.get(`/sentiment/${symbol}`);
+      const { data } = await api.get(`/sentiment/${symbol}${isRefresh ? '?refresh=true' : ''}`, { timeout: 120000 });
       if (data.error) throw new Error(data.error);
       setSentiment(data);
     } catch (err) {
@@ -85,7 +85,7 @@ export default function StockDetail() {
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 py-6 font-sans">
-      {/* Main Column */}
+      {/* Chart Column (2 spans) */}
       <div className="xl:col-span-2 space-y-4">
         <div className="card glass flex justify-between items-center p-4">
           <div className="flex items-center gap-4">
@@ -126,113 +126,9 @@ export default function StockDetail() {
         <div className="card glass p-2 h-[450px]">
           <Chart data={candles} liveUpdate={livePrice} timeframe={timeframe} range={range} />
         </div>
-
-        {/* AI Sentiment Section (Now below the chart, taking full horizontal space in the main column) */}
-        <div className="card glass space-y-4 border-t-4 border-indigo-500 shadow-xl overflow-hidden">
-          <div className="flex justify-between items-center bg-indigo-500/5 -m-4 mb-4 p-4 border-b border-indigo-500/10">
-            <h3 className="text-sm font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
-              AI Financial Insights & Deep Analysis
-            </h3>
-            <button 
-              onClick={fetchSentiment}
-              disabled={loadingSentiment}
-              className={`text-[10px] px-4 py-1.5 rounded bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all font-black ${loadingSentiment ? 'animate-pulse cursor-not-allowed' : ''}`}
-            >
-              {loadingSentiment ? 'AGENTIC SEARCH IN PROGRESS...' : 'REFRESH AI INSIGHTS'}
-            </button>
-          </div>
-
-          {sentimentError && (
-            <div className="p-4 rounded bg-accent-red/10 text-accent-red text-xs text-center border border-accent-red/20 font-bold">
-              ⚠️ {sentimentError}
-            </div>
-          )}
-
-          {!sentiment && !loadingSentiment && !sentimentError && (
-            <div className="text-center py-12 bg-bg-primary/30 rounded-xl border border-dashed border-border-color">
-              <p className="text-sm text-text-secondary mb-4 max-w-md mx-auto">Get professional multi-agent sentiment analysis powered by Gemini 1.5 Flash and Tavily Deep Search.</p>
-              <button 
-                onClick={fetchSentiment} 
-                className="px-8 py-3 rounded-full bg-indigo-500 text-white text-sm font-black hover:scale-105 active:scale-95 transition-all shadow-xl shadow-indigo-500/30 ring-4 ring-indigo-500/10"
-              >
-                GENERATE AI REPORT
-              </button>
-            </div>
-          )}
-
-          {sentiment && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <div className="space-y-4">
-                <div className="flex items-center gap-4 bg-bg-primary/50 p-4 rounded-xl border border-border-color shadow-inner">
-                  <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center font-black text-2xl shadow-lg ${
-                    (sentiment.score || 0) > 60 ? 'border-accent-green text-accent-green bg-accent-green/5 shadow-accent-green/10' : 
-                    (sentiment.score || 0) < 40 ? 'border-accent-red text-accent-red bg-accent-red/5 shadow-accent-red/10' : 
-                    'border-yellow-500 text-yellow-500 bg-yellow-500/5 shadow-yellow-500/10'
-                  }`}>
-                    {sentiment.score || '-'}
-                  </div>
-                  <div>
-                    <h4 className="text-lg font-black uppercase text-text-primary tracking-tight">{sentiment.recommendation || 'No Recommendation'}</h4>
-                    <p className="text-xs text-text-secondary font-mono tracking-tighter opacity-70 uppercase">AI CONFIDENCE SCORE</p>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <p className="text-xs font-black text-indigo-400 tracking-widest flex items-center gap-2">
-                    EXECUTIVE SUMMARY
-                  </p>
-                  <div className="text-sm text-text-primary leading-relaxed bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/10 shadow-sm font-medium">
-                    "{sentiment.summary || "No summary available."}"
-                    
-                    {sentiment.explanation && (
-                      <details className="mt-4 border-t border-indigo-500/10 pt-4">
-                        <summary className="cursor-pointer text-xs text-indigo-400 hover:text-indigo-300 font-bold uppercase transition-colors flex justify-between items-center bg-indigo-500/5 p-2 rounded">
-                          AI Reasoning Engine Output
-                          <span className="text-[10px] opacity-70">Expand Full Report ↓</span>
-                        </summary>
-                        <div className="mt-4 text-sm text-text-primary whitespace-pre-wrap leading-relaxed font-sans border-l-2 border-indigo-500/30 pl-6 pb-4">
-                          {sentiment.explanation}
-                        </div>
-                      </details>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="p-4 bg-bg-primary/20 rounded-xl border border-border-color space-y-4">
-                  <p className="text-xs font-black text-text-secondary tracking-widest border-b border-border-color pb-2">VERIFIED SOURCES & CITATIONS</p>
-                  <div className="space-y-2">
-                    {sentiment.citations?.length > 0 ? (
-                      sentiment.citations.map((c, i) => (
-                        <a 
-                          key={i} 
-                          href={c.url} 
-                          target="_blank" 
-                          rel="noreferrer" 
-                          className="text-xs text-indigo-400 hover:text-white hover:bg-indigo-500/20 flex items-center gap-3 p-3 rounded-lg border border-transparent hover:border-indigo-500/30 transition-all group"
-                        >
-                          <span className="opacity-50 font-mono text-xs w-6 h-6 flex items-center justify-center bg-indigo-500/10 rounded group-hover:bg-indigo-500 group-hover:text-white">[{i+1}]</span> 
-                          <span className="truncate flex-1">{c.title}</span>
-                        </a>
-                      ))
-                    ) : (
-                      <p className="text-xs text-text-secondary italic">No citations found in the search context.</p>
-                    )}
-                  </div>
-                  <div className="pt-2 flex justify-between items-center border-t border-border-color">
-                    <span className="text-[9px] text-text-secondary uppercase opacity-50 tracking-tighter">Analysis Timestamp: {new Date(sentiment.timestamp).toLocaleString()}</span>
-                    <span className="text-[9px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-bold">GEMINI 1.5 FLASH</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Sidebar Column */}
+      {/* Sidebar Column (1 span) */}
       <div className="space-y-6">
         <div className="card glass space-y-6 shadow-xl border-t-4 border-accent-green">
           <div className="flex justify-between items-end border-b border-border-color pb-4">
@@ -284,6 +180,146 @@ export default function StockDetail() {
         <div className="card glass bg-bg-primary p-4 text-[10px] space-y-2 border-dashed border border-border-color text-text-secondary">
           <p className="text-accent-green font-bold text-xs">Paper Trading Notice</p>
           <p>Execution is simulated using live NIFTY 50 price feeds. No real money is involved.</p>
+        </div>
+      </div>
+
+      {/* AI Sentiment Section (Now FULL WIDTH across Chart and Sidebar columns) */}
+      <div className="xl:col-span-3 mt-4">
+        <div className="card glass space-y-4 border-t-4 border-indigo-500 shadow-xl overflow-hidden">
+          <div className="flex justify-between items-center bg-indigo-500/5 -m-4 mb-4 p-4 border-b border-indigo-500/10">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+              AI Financial Insights & Deep Analysis
+            </h3>
+            <button 
+              onClick={() => fetchSentiment(true)}
+              disabled={loadingSentiment}
+              className={`text-[10px] px-4 py-1.5 rounded bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all font-black ${loadingSentiment ? 'animate-pulse cursor-not-allowed' : ''}`}
+            >
+              {loadingSentiment ? 'AGENTIC SEARCH IN PROGRESS...' : 'REFRESH AI INSIGHTS'}
+            </button>
+          </div>
+
+          {sentimentError && (
+            <div className="p-4 rounded bg-accent-red/10 text-accent-red text-xs text-center border border-accent-red/20 font-bold">
+              ⚠️ {sentimentError}
+            </div>
+          )}
+
+          {!sentiment && !loadingSentiment && !sentimentError && (
+            <div className="text-center py-12 bg-bg-primary/30 rounded-xl border border-dashed border-border-color">
+              <p className="text-sm text-text-secondary mb-4 max-w-md mx-auto">Get professional multi-agent sentiment analysis powered by Gemini 1.5/2.0 and Tavily Deep Search.</p>
+              <button 
+                onClick={fetchSentiment} 
+                className="px-8 py-3 rounded-full bg-indigo-500 text-white text-sm font-black hover:scale-105 active:scale-95 transition-all shadow-xl shadow-indigo-500/30 ring-4 ring-indigo-500/10"
+              >
+                GENERATE AI REPORT
+              </button>
+            </div>
+          )}
+
+          {sentiment && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="space-y-6">
+                <div className="flex items-center gap-6 bg-bg-primary/50 p-6 rounded-2xl border border-border-color shadow-inner">
+                  <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center font-black text-3xl shadow-lg ${
+                    (sentiment.score || 0) > 60 ? 'border-accent-green text-accent-green bg-accent-green/5 shadow-accent-green/10' : 
+                    (sentiment.score || 0) < 40 ? 'border-accent-red text-accent-red bg-accent-red/5 shadow-accent-red/10' : 
+                    'border-yellow-500 text-yellow-500 bg-yellow-500/5 shadow-yellow-500/10'
+                  }`}>
+                    {sentiment.score || '-'}
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-black uppercase text-text-primary tracking-tight">{sentiment.recommendation || 'No Recommendation'}</h4>
+                    <p className="text-xs text-text-secondary font-mono tracking-tighter opacity-70 uppercase">PROPRIETARY AI CONFIDENCE SCORE</p>
+                  </div>
+                </div>
+
+                {/* Probability Breakdown */}
+                <div className="bg-bg-primary/30 p-4 rounded-xl border border-border-color space-y-3 shadow-inner">
+                  <div className="flex justify-between items-center text-[10px] font-black tracking-widest text-text-secondary uppercase">
+                    <span>Sentiment Breakdown</span>
+                    <span className="text-indigo-400">Total 100%</span>
+                  </div>
+                  <div className="space-y-4">
+                    {[
+                      { label: 'BUY', score: sentiment.buyScore, color: 'bg-accent-green' },
+                      { label: 'HOLD', score: sentiment.holdScore, color: 'bg-yellow-500' },
+                      { label: 'SELL', score: sentiment.sellScore, color: 'bg-accent-red' }
+                    ].map(item => (
+                      <div key={item.label} className="space-y-1">
+                        <div className="flex justify-between text-[10px] font-bold">
+                          <span>{item.label}</span>
+                          <span>{item.score}%</span>
+                        </div>
+                        <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-border-color/30">
+                          <div 
+                            className={`h-full ${item.color} shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-all duration-1000 ease-out`}
+                            style={{ width: `${item.score}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-xs font-black text-indigo-400 tracking-widest flex items-center gap-2 border-l-4 border-indigo-500 pl-3">
+                    EXECUTIVE SUMMARY
+                  </p>
+                  <div className="text-base text-text-primary leading-relaxed bg-indigo-500/5 p-6 rounded-2xl border border-indigo-500/10 shadow-sm font-medium italic">
+                    "{sentiment.summary || "No summary available."}"
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="p-6 bg-bg-primary/20 rounded-2xl border border-border-color space-y-6">
+                  <p className="text-xs font-black text-text-secondary tracking-widest border-b border-border-color pb-3">VERIFIED SOURCES & CITATIONS</p>
+                  <div className="grid grid-cols-1 gap-2">
+                    {sentiment.citations?.length > 0 ? (
+                      sentiment.citations.map((c, i) => (
+                        <a 
+                          key={i} 
+                          href={c.url} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="text-xs text-indigo-400 hover:text-white hover:bg-indigo-500/20 flex items-center gap-4 p-4 rounded-xl border border-transparent hover:border-indigo-500/30 transition-all group"
+                        >
+                          <span className="opacity-50 font-mono text-sm w-10 h-10 flex items-center justify-center bg-indigo-500/10 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-colors">[{i+1}]</span> 
+                          <span className="truncate flex-1 font-bold">{c.title}</span>
+                          <span className="text-[10px] bg-indigo-500/20 px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 uppercase transition-opacity font-black">Source</span>
+                        </a>
+                      ))
+                    ) : (
+                      <p className="text-xs text-text-secondary italic">No citations found.</p>
+                    )}
+                  </div>
+                  <div className="pt-4 flex justify-between items-center border-t border-border-color">
+                    <span className="text-[10px] text-text-secondary uppercase opacity-60 font-medium font-mono">Report Generated: {new Date(sentiment.timestamp).toLocaleString()}</span>
+                    <span className="text-[10px] bg-indigo-500/20 text-indigo-400 px-3 py-1 rounded-lg font-black tracking-widest">GEMINI AI AGENTIC</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Deep Analysis (Full Width below the 2-col summary) */}
+              {sentiment.explanation && (
+                <div className="md:col-span-2 mt-4">
+                  <details className="border border-indigo-500/20 rounded-2xl overflow-hidden shadow-sm" open>
+                    <summary className="cursor-pointer text-xs text-white bg-indigo-500/40 hover:bg-indigo-500/60 p-4 font-black uppercase transition-all flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="animate-pulse">⚡</span> AI Reasoning Engine Full Report
+                      </div>
+                      <span className="text-[10px] opacity-70 tracking-widest">SEQUENTIAL MULTI-AGENT ANALYSIS ↓</span>
+                    </summary>
+                    <div className="p-8 text-base text-text-primary whitespace-pre-wrap font-sans leading-relaxed bg-bg-primary shadow-inner">
+                      {sentiment.explanation}
+                    </div>
+                  </details>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

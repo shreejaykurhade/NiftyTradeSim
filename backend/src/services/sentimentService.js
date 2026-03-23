@@ -75,18 +75,25 @@ async function getStockSentiment(symbol, stockName, sector) {
 
     // Agent 4: Analyst
     console.log('📊 [Agent 4] Analyst processing...');
-    const analystPrompt = `System: You are an Elite Financial Data Scientist at a top-tier quantitative firm. 
-      Analyze the following context for ${stockName} (${symbol}) and provide a professional, structured report.
+    const analystPrompt = `System: You are an Elite Financial Data Scientist at a top-tier quantitative firm.
+      Provide a professional, clean report for ${stockName} (${symbol}).
       
-      RULES:
-      - DO NOT use tables.
+      STRICT FORMATTING RULES:
+      - Use ONLY Plain Text. 
+      - NO markdown symbols (NO #, NO *, NO **).
+      - Section Headers must be ALL-CAPS (e.g., FUNDAMENTAL TRENDS).
+      - Use simple dashes '-' for bullets.
       - DO NOT use conversational fillers or "As an AI...".
-      - Use clean Markdown headers and bullet points.
-      - Focus on: Fundamental Trends, Sector Comparison, Bullish Signals, and Bearish Risks.
       
-      DOMESTIC CONTEXT: ${domCtx}
-      SECTOR CONTEXT: ${secCtx}
-      GLOBAL CONTEXT: ${globCtx}`;
+      CONTENT SECTIONS:
+      1. FUNDAMENTAL TRENDS: Describe recovery/fluctuations, diversification.
+      2. SECTOR COMPARISON: Relative position in the Indian market.
+      3. STRATEGIC OUTLOOK: Focus on new energy/growth drivers.
+      
+      DATA SOURCE:
+      DOMESTIC: ${domCtx}
+      SECTOR: ${secCtx}
+      GLOBAL: ${globCtx}`;
     const analystRes = await model.generateContent(analystPrompt);
     const analysis = analystRes.response.text();
 
@@ -99,12 +106,25 @@ async function getStockSentiment(symbol, stockName, sector) {
       ${globCtx.substring(0, 1000)}
 
       Output ONLY valid JSON.
-      COMPULSORY: You MUST include a "citations" array with at least 3-5 sources from the context (title and url).
+      LOGIC RULES:
+      - overallScore: 0-100 (0=Extreme Bearish, 100=Extreme Bullish).
+      - recommendation must match overallScore:
+        * 85-100: Strong Buy
+        * 65-84: Buy
+        * 40-64: Hold
+        * 20-39: Sell
+        * 0-19: Strong Sell
+      - buyScore, sellScore, holdScore: Probabilities (0-100) that must sum to 100.
+
+      JSON STRUCTURE:
       {
         "score": number,
-        "recommendation": "Strong Buy/Buy/Hold/Sell/Strong Sell",
-        "summary": "2-sentence professional summary",
-        "citations": [{"title": "source title", "url": "source url"}]
+        "buyScore": number,
+        "sellScore": number,
+        "holdScore": number,
+        "recommendation": "String",
+        "summary": "2-sentence summary",
+        "citations": [{"title": "String", "url": "String"}]
       }`;
     const finalRes = await model.generateContent(finalPrompt);
     const text = finalRes.response.text();
