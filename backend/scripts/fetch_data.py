@@ -1,7 +1,8 @@
 import yfinance as yf
 import json
 import sys
-from datetime import datetime, timedelta
+import argparse
+from datetime import datetime
 
 stocks = [
     "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "HINDUNILVR.NS",
@@ -16,24 +17,21 @@ stocks = [
     "UPL.NS", "SHREECEM.NS", "BPCL.NS", "IOC.NS", "^NSEI"
 ]
 
-def fetch_data():
+def fetch_data(timeframe="1D"):
+    interval_map = {"1D": "1d", "1W": "1wk", "1M": "1mo"}
+    interval = interval_map.get(timeframe, "1d")
+    
     all_data = []
-
     for stock in stocks:
         try:
-            print(f"Downloading {stock}...", file=sys.stderr)
-            df = yf.download(stock, period="max", interval='1d', auto_adjust=True, progress=False)
-            if df.empty:
-                print(f"Empty data for {stock}", file=sys.stderr)
-                continue
+            print(f"Downloading {stock} [{timeframe}]...", file=sys.stderr)
+            df = yf.download(stock, period="max", interval=interval, auto_adjust=True, progress=False)
+            if df.empty: continue
             
-            # Filter to last 11 years (approx 2015-2026) to keep buffer size manageable
-            # But we'll just take everything from 2014 onwards
-            
-            candles = []
             for index, row in df.iterrows():
-                candles.append({
+                all_data.append({
                     "symbol": stock,
+                    "timeframe": timeframe,
                     "timestamp": index.isoformat(),
                     "open": float(row["Open"]),
                     "high": float(row["High"]),
@@ -41,12 +39,12 @@ def fetch_data():
                     "close": float(row["Close"]),
                     "volume": int(row["Volume"]) if "Volume" in row else 0
                 })
-            all_data.extend(candles)
-            print(f"  Got {len(candles)} candles", file=sys.stderr)
         except Exception as e:
             print(f"Error {stock}: {e}", file=sys.stderr)
-
     print(json.dumps(all_data))
 
 if __name__ == "__main__":
-    fetch_data()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--timeframe", default="1D")
+    args = parser.parse_args()
+    fetch_data(args.timeframe)

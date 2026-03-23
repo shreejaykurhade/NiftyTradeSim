@@ -49,15 +49,17 @@ export default function Chart({ data, liveUpdate, timeframe, range }) {
       } else {
         const lastTime = data[data.length - 1].time;
         let diff = 0;
-        if (range === '1M') diff = 30 * 24 * 3600;
-        else if (range === '3M') diff = 90 * 24 * 3600;
+        if (range === '1D') diff = 24 * 3600;
+        else if (range === '5D') diff = 5 * 24 * 3600;
+        else if (range === '1W') diff = 7 * 24 * 3600;
+        else if (range === '1M') diff = 30 * 24 * 3600;
         else if (range === '6M') diff = 180 * 24 * 3600;
         else if (range === '1Y') diff = 365 * 24 * 3600;
 
         if (diff > 0) {
           chart.timeScale().setVisibleRange({
             from: lastTime - diff,
-            to: lastTime,
+            to: lastTime + (diff * 0.05), // small right margin
           });
         }
       }

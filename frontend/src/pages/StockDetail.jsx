@@ -149,7 +149,7 @@ export default function StockDetail() {
           
           <div className="flex gap-2 bg-bg-primary/50 p-1 rounded-lg border border-border-color">
             <div className="flex gap-1 pr-2 border-r border-border-color">
-              {['1M', '3M', '6M', '1Y', 'ALL'].map(r => (
+              {['1D', '5D', '1M', '6M', '1Y', 'ALL'].map(r => (
                 <button
                   key={r}
                   onClick={() => setRange(r)}
