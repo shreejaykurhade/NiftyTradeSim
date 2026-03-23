@@ -15,6 +15,24 @@ export default function StockDetail() {
   const [range, setRange] = useState('1Y');
   const [quantity, setQuantity] = useState(1);
   const [orderStatus, setOrderStatus] = useState({ type: '', message: '' });
+  const [sentiment, setSentiment] = useState(null);
+  const [loadingSentiment, setLoadingSentiment] = useState(false);
+  const [sentimentError, setSentimentError] = useState(null);
+
+  const fetchSentiment = async () => {
+    setLoadingSentiment(true);
+    setSentimentError(null);
+    try {
+      const { data } = await api.get(`/sentiment/${symbol}`);
+      if (data.error) throw new Error(data.error);
+      setSentiment(data);
+    } catch (err) {
+      console.error('Sentiment fetch failed', err);
+      setSentimentError(err.response?.data?.error || err.message || 'Failed to get AI insights');
+    } finally {
+      setLoadingSentiment(false);
+    }
+  };
 
   useEffect(() => {
     async function fetchData() {
@@ -67,6 +85,7 @@ export default function StockDetail() {
 
   return (
     <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 py-6 font-sans">
+      {/* Main Column */}
       <div className="xl:col-span-2 space-y-4">
         <div className="card glass flex justify-between items-center p-4">
           <div className="flex items-center gap-4">
@@ -107,8 +126,113 @@ export default function StockDetail() {
         <div className="card glass p-2 h-[450px]">
           <Chart data={candles} liveUpdate={livePrice} timeframe={timeframe} range={range} />
         </div>
+
+        {/* AI Sentiment Section (Now below the chart, taking full horizontal space in the main column) */}
+        <div className="card glass space-y-4 border-t-4 border-indigo-500 shadow-xl overflow-hidden">
+          <div className="flex justify-between items-center bg-indigo-500/5 -m-4 mb-4 p-4 border-b border-indigo-500/10">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+              AI Financial Insights & Deep Analysis
+            </h3>
+            <button 
+              onClick={fetchSentiment}
+              disabled={loadingSentiment}
+              className={`text-[10px] px-4 py-1.5 rounded bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all font-black ${loadingSentiment ? 'animate-pulse cursor-not-allowed' : ''}`}
+            >
+              {loadingSentiment ? 'AGENTIC SEARCH IN PROGRESS...' : 'REFRESH AI INSIGHTS'}
+            </button>
+          </div>
+
+          {sentimentError && (
+            <div className="p-4 rounded bg-accent-red/10 text-accent-red text-xs text-center border border-accent-red/20 font-bold">
+              ⚠️ {sentimentError}
+            </div>
+          )}
+
+          {!sentiment && !loadingSentiment && !sentimentError && (
+            <div className="text-center py-12 bg-bg-primary/30 rounded-xl border border-dashed border-border-color">
+              <p className="text-sm text-text-secondary mb-4 max-w-md mx-auto">Get professional multi-agent sentiment analysis powered by Gemini 1.5 Flash and Tavily Deep Search.</p>
+              <button 
+                onClick={fetchSentiment} 
+                className="px-8 py-3 rounded-full bg-indigo-500 text-white text-sm font-black hover:scale-105 active:scale-95 transition-all shadow-xl shadow-indigo-500/30 ring-4 ring-indigo-500/10"
+              >
+                GENERATE AI REPORT
+              </button>
+            </div>
+          )}
+
+          {sentiment && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4 bg-bg-primary/50 p-4 rounded-xl border border-border-color shadow-inner">
+                  <div className={`w-16 h-16 rounded-full border-4 flex items-center justify-center font-black text-2xl shadow-lg ${
+                    (sentiment.score || 0) > 60 ? 'border-accent-green text-accent-green bg-accent-green/5 shadow-accent-green/10' : 
+                    (sentiment.score || 0) < 40 ? 'border-accent-red text-accent-red bg-accent-red/5 shadow-accent-red/10' : 
+                    'border-yellow-500 text-yellow-500 bg-yellow-500/5 shadow-yellow-500/10'
+                  }`}>
+                    {sentiment.score || '-'}
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-black uppercase text-text-primary tracking-tight">{sentiment.recommendation || 'No Recommendation'}</h4>
+                    <p className="text-xs text-text-secondary font-mono tracking-tighter opacity-70 uppercase">AI CONFIDENCE SCORE</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="text-xs font-black text-indigo-400 tracking-widest flex items-center gap-2">
+                    EXECUTIVE SUMMARY
+                  </p>
+                  <div className="text-sm text-text-primary leading-relaxed bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/10 shadow-sm font-medium">
+                    "{sentiment.summary || "No summary available."}"
+                    
+                    {sentiment.explanation && (
+                      <details className="mt-4 border-t border-indigo-500/10 pt-4">
+                        <summary className="cursor-pointer text-xs text-indigo-400 hover:text-indigo-300 font-bold uppercase transition-colors flex justify-between items-center bg-indigo-500/5 p-2 rounded">
+                          AI Reasoning Engine Output
+                          <span className="text-[10px] opacity-70">Expand Full Report ↓</span>
+                        </summary>
+                        <div className="mt-4 text-sm text-text-primary whitespace-pre-wrap leading-relaxed font-sans border-l-2 border-indigo-500/30 pl-6 pb-4">
+                          {sentiment.explanation}
+                        </div>
+                      </details>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="p-4 bg-bg-primary/20 rounded-xl border border-border-color space-y-4">
+                  <p className="text-xs font-black text-text-secondary tracking-widest border-b border-border-color pb-2">VERIFIED SOURCES & CITATIONS</p>
+                  <div className="space-y-2">
+                    {sentiment.citations?.length > 0 ? (
+                      sentiment.citations.map((c, i) => (
+                        <a 
+                          key={i} 
+                          href={c.url} 
+                          target="_blank" 
+                          rel="noreferrer" 
+                          className="text-xs text-indigo-400 hover:text-white hover:bg-indigo-500/20 flex items-center gap-3 p-3 rounded-lg border border-transparent hover:border-indigo-500/30 transition-all group"
+                        >
+                          <span className="opacity-50 font-mono text-xs w-6 h-6 flex items-center justify-center bg-indigo-500/10 rounded group-hover:bg-indigo-500 group-hover:text-white">[{i+1}]</span> 
+                          <span className="truncate flex-1">{c.title}</span>
+                        </a>
+                      ))
+                    ) : (
+                      <p className="text-xs text-text-secondary italic">No citations found in the search context.</p>
+                    )}
+                  </div>
+                  <div className="pt-2 flex justify-between items-center border-t border-border-color">
+                    <span className="text-[9px] text-text-secondary uppercase opacity-50 tracking-tighter">Analysis Timestamp: {new Date(sentiment.timestamp).toLocaleString()}</span>
+                    <span className="text-[9px] bg-indigo-500/10 text-indigo-400 px-2 py-0.5 rounded font-bold">GEMINI 1.5 FLASH</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Sidebar Column */}
       <div className="space-y-6">
         <div className="card glass space-y-6 shadow-xl border-t-4 border-accent-green">
           <div className="flex justify-between items-end border-b border-border-color pb-4">
@@ -165,4 +289,3 @@ export default function StockDetail() {
     </div>
   );
 }
-

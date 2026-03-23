@@ -15,6 +15,7 @@ const marketRoutes = require('./src/routes/market');
 const orderRoutes = require('./src/routes/orders');
 const portfolioRoutes = require('./src/routes/portfolio');
 const candleRoutes = require('./src/routes/candles');
+const sentimentRoutes = require('./src/routes/sentiment');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -34,6 +35,7 @@ app.use('/api/market', marketRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/candles', candleRoutes);
+app.use('/api/sentiment', sentimentRoutes);
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
