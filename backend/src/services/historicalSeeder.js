@@ -10,7 +10,7 @@ async function seedHistoricalData() {
     console.log(`🚀 Executing: python ${pythonScript}`);
     
     // This will take a while, Increase buffer for 10 years of 50 stocks (~3MB of JSON)
-    const result = execSync(`python "${pythonScript}"`, { maxBuffer: 50 * 1024 * 1024 });
+    const result = execSync(`python "${pythonScript}"`, { maxBuffer: 200 * 1024 * 1024 });
     const candles = JSON.parse(result.toString());
     
     if (!candles || candles.length === 0) {

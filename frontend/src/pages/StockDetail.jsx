@@ -77,7 +77,7 @@ export default function StockDetail() {
       try {
         const [stockRes, candleRes] = await Promise.all([
           api.get(`/market/stocks/${symbol}`),
-          api.get(`/candles/${symbol}?timeframe=${timeframe}&limit=3000`)
+          api.get(`/candles/${symbol}?timeframe=${timeframe}&limit=15000`)
         ]);
         setStock(stockRes.data);
         setCandles(candleRes.data.data);

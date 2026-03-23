@@ -7,7 +7,7 @@ async function getCandles(req, res) {
   try {
     const { symbol } = req.params;
     const timeframe = req.query.timeframe || '1D';
-    const limit = Math.min(parseInt(req.query.limit) || 1000, 5000);
+    const limit = Math.min(parseInt(req.query.limit) || 10000, 20000);
 
     if (!VALID_TIMEFRAMES.includes(timeframe)) {
       return res.status(400).json({ error: `Invalid timeframe. Use: ${VALID_TIMEFRAMES.join(', ')}` });
