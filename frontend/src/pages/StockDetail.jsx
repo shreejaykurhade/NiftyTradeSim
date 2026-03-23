@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../services/api';
-import { useMarketSocket, getSocket } from '../hooks/useSocket';
+import { useMarketSocket, getSocket, useOrderSocket } from '../hooks/useSocket';
 import { useAuth } from '../contexts/AuthContext';
 import Chart from '../components/Chart';
 
@@ -45,7 +45,7 @@ function calculateVolatility(candles, period = 20) {
 
 export default function StockDetail() {
   const { symbol } = useParams();
-  const { refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [stock, setStock] = useState(null);
   const [candles, setCandles] = useState([]);
   const [livePrice, setLivePrice] = useState(null);
