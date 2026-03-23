@@ -5,6 +5,44 @@ import { useMarketSocket, getSocket } from '../hooks/useSocket';
 import { useAuth } from '../contexts/AuthContext';
 import Chart from '../components/Chart';
 
+// Helper functions for technical analysis
+function calculateRSI(candles, period = 14) {
+  if (!candles || candles.length < period + 1) return 50;
+  
+  const gains = [];
+  const losses = [];
+  
+  for (let i = 1; i <= period; i++) {
+    const change = candles[candles.length - i].close - candles[candles.length - i - 1].close;
+    if (change > 0) {
+      gains.push(change);
+      losses.push(0);
+    } else {
+      gains.push(0);
+      losses.push(Math.abs(change));
+    }
+  }
+  
+  const avgGain = gains.reduce((sum, gain) => sum + gain, 0) / period;
+  const avgLoss = losses.reduce((sum, loss) => sum + loss, 0) / period;
+  
+  if (avgLoss === 0) return 100;
+  
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+
+function calculateVolatility(candles, period = 20) {
+  if (!candles || candles.length < period) return 0;
+  
+  const recentPrices = candles.slice(-period).map(c => c.close);
+  const mean = recentPrices.reduce((sum, price) => sum + price, 0) / period;
+  const variance = recentPrices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / period;
+  const stdDev = Math.sqrt(variance);
+  
+  return (stdDev / mean) * 100; // Coefficient of variation
+}
+
 export default function StockDetail() {
   const { symbol } = useParams();
   const { refreshUser } = useAuth();
@@ -91,6 +129,22 @@ export default function StockDetail() {
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-accent-green">{stock.symbol.split('.')[0]}</h1>
             <span className="text-text-secondary text-sm">{stock.name}</span>
+            {stock.website && (
+              <a 
+                href={stock.website} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="p-1 px-2 rounded-lg bg-bg-secondary border border-border-color text-text-secondary hover:text-accent-green hover:border-accent-green transition-all flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider group"
+                title="Visit Website"
+              >
+                Website
+                <svg className="w-2.5 h-2.5 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                  <polyline points="15 3 21 3 21 9"></polyline>
+                  <line x1="10" y1="14" x2="21" y2="3"></line>
+                </svg>
+              </a>
+            )}
           </div>
           
           <div className="flex gap-2 bg-bg-primary/50 p-1 rounded-lg border border-border-color">

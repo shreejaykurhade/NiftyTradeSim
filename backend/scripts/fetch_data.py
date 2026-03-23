@@ -4,27 +4,25 @@ import sys
 from datetime import datetime, timedelta
 
 stocks = [
-    "RELIANCE.NS","TCS.NS","INFY.NS","HDFCBANK.NS","ICICIBANK.NS",
-    "SBIN.NS","ITC.NS","LT.NS","AXISBANK.NS","HINDUNILVR.NS",
-    "KOTAKBANK.NS","BAJFINANCE.NS","BHARTIARTL.NS","ASIANPAINT.NS",
-    "MARUTI.NS","SUNPHARMA.NS","NTPC.NS","TITAN.NS","ULTRACEMCO.NS",
-    "ONGC.NS","ADANIENT.NS","ADANIPORTS.NS","COALINDIA.NS","DRREDDY.NS",
-    "EICHERMOT.NS","GRASIM.NS","HCLTECH.NS","HEROMOTOCO.NS","HINDALCO.NS",
-    "INDUSINDBK.NS","JSWSTEEL.NS","M&M.NS","NESTLEIND.NS","POWERGRID.NS",
-    "SBILIFE.NS","SHRIRAMFIN.NS","TATACONSUM.NS","TATAMOTORS.NS",
-    "TATASTEEL.NS","TECHM.NS","UPL.NS","WIPRO.NS","BPCL.NS","BRITANNIA.NS",
-    "CIPLA.NS","DIVISLAB.NS","APOLLOHOSP.NS","HDFCLIFE.NS","BAJAJ-AUTO.NS","SHREECEM.NS","BPCL.NS","IOC.NS"
+    "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "HINDUNILVR.NS",
+    "ICICIBANK.NS", "KOTAKBANK.NS", "SBIN.NS", "BAJFINANCE.NS", "BHARTIARTL.NS",
+    "WIPRO.NS", "LT.NS", "ASIANPAINT.NS", "HCLTECH.NS", "AXISBANK.NS",
+    "MARUTI.NS", "SUNPHARMA.NS", "TITAN.NS", "ULTRACEMCO.NS", "ONGC.NS",
+    "NESTLEIND.NS", "POWERGRID.NS", "NTPC.NS", "M&M.NS", "TECHM.NS",
+    "BAJAJFINSV.NS", "DRREDDY.NS", "CIPLA.NS", "TATAMOTORS.NS", "COALINDIA.NS",
+    "INDUSINDBK.NS", "EICHERMOT.NS", "HEROMOTOCO.NS", "GRASIM.NS", "DIVISLAB.NS",
+    "HINDALCO.NS", "JSWSTEEL.NS", "TATASTEEL.NS", "ADANIPORTS.NS", "TATACONSUM.NS",
+    "BRITANNIA.NS", "APOLLOHOSP.NS", "SBILIFE.NS", "HDFCLIFE.NS", "BAJAJ-AUTO.NS",
+    "UPL.NS", "SHREECEM.NS", "BPCL.NS", "IOC.NS", "^NSEI"
 ]
 
 def fetch_data():
-    start_date = "2014-01-01"
     all_data = []
 
     for stock in stocks:
         try:
             print(f"Downloading {stock}...", file=sys.stderr)
-            # Use period="max" or a very old start date
-            df = yf.download(stock, start=start_date, interval='1d', auto_adjust=True, progress=False)
+            df = yf.download(stock, period="max", interval='1d', auto_adjust=True, progress=False)
             if df.empty:
                 print(f"Empty data for {stock}", file=sys.stderr)
                 continue

@@ -81,8 +81,24 @@ export default function Chart({ data, liveUpdate, timeframe, range }) {
   // Handle live WebSocket updates
   useEffect(() => {
     if (seriesRef.current && liveUpdate && liveUpdate.price) {
-      const timestamp = liveUpdate.time || Math.floor(Date.now() / 1000);
-      
+      const now = new Date();
+      let timestamp = Math.floor(now.getTime() / 1000);
+
+      // Normalize timestamp based on timeframe
+      if (timeframe === '1D') {
+        now.setUTCHours(0, 0, 0, 0);
+        timestamp = Math.floor(now.getTime() / 1000);
+      } else if (timeframe === '1W') {
+        const day = now.getUTCDay();
+        const diff = now.getUTCDate() - day + (day === 0 ? -6 : 1); // Monday
+        now.setUTCDate(diff);
+        now.setUTCHours(0, 0, 0, 0);
+        timestamp = Math.floor(now.getTime() / 1000);
+      } else if (timeframe === '1M') {
+        now.setUTCSeconds(0, 0);
+        timestamp = Math.floor(now.getTime() / 1000);
+      }
+
       try {
         seriesRef.current.update({
           time: timestamp,
@@ -95,7 +111,7 @@ export default function Chart({ data, liveUpdate, timeframe, range }) {
         console.warn('Chart update failed:', err);
       }
     }
-  }, [liveUpdate]);
+  }, [liveUpdate, timeframe]);
 
   return <div ref={chartContainerRef} className="w-full h-[400px]" />;
 }

@@ -6,6 +6,7 @@
   --color-text-primary: #eaecef;
   --color-text-secondary: #848e9c;
   --color-accent-green: #0ecb81;
+  --color-accent-blue: #3b82f6;
   --color-accent-red: #f6465d;
   --color-border-color: #2b3139;
 }
@@ -48,6 +49,27 @@ button.primary:hover {
   filter: brightness(1.1);
 }
 
+button.secondary {
+  background-color: var(--color-accent-blue);
+  color: #ffffff;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+button.secondary:hover {
+  filter: brightness(1.1);
+}
+
+.btn-login {
+  background-color: var(--color-accent-green);
+  color: #0b0e11;
+}
+
+.btn-register {
+  background-color: var(--color-accent-blue);
+  color: #ffffff;
+}
+
 .card {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
@@ -64,9 +86,10 @@ button.primary:hover {
   background: var(--bg-primary);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 3px;
+  background: #333;
+  border-radius: 10px;
+  border: 2px solid var(--color-bg-primary);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--text-secondary);
+  background: #444;
 }

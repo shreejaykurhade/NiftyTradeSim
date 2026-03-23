@@ -64,8 +64,8 @@ async function fetchAndBroadcast() {
 }
 
 function startMarketFetcher() {
-  // Fetch every 15 seconds as requested
-  cron.schedule('*/15 * * * * *', async () => {
+  // Fetch every 5 seconds for a more "live" feel
+  cron.schedule('*/5 * * * * *', async () => {
     const now = new Date();
     // Convert to IST (UTC+5:30)
     const istMinutes = now.getUTCHours() * 60 + now.getUTCMinutes() + 330;

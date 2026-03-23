@@ -52,7 +52,7 @@ export default function Login() {
             />
           </div>
 
-          <button type="submit" className="primary w-full py-3 rounded-lg text-lg font-bold">
+          <button type="submit" className="btn-login w-full py-3 rounded-lg text-lg font-bold transition-all hover:brightness-110">
             Sign In
           </button>
         </form>

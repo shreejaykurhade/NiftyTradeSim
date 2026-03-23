@@ -72,6 +72,8 @@ export default function Dashboard() {
               <tr>
                 <th className="px-6 py-4">Symbol</th>
                 <th className="px-6 py-4">Stock Name</th>
+                <th className="px-6 py-4 text-right">Open (₹)</th>
+                <th className="px-6 py-4 text-right">Day H/L (₹)</th>
                 <th className="px-6 py-4 text-right">Last Price (₹)</th>
                 <th className="px-6 py-4 text-right">Change</th>
                 <th className="px-6 py-4 text-right">Volume</th>
@@ -87,6 +89,12 @@ export default function Dashboard() {
                 <tr key={stock.symbol} className="hover:bg-bg-primary/50 transition-colors group">
                   <td className="px-6 py-4 font-bold text-accent-green">{stock.symbol.split('.')[0]}</td>
                   <td className="px-6 py-4 text-sm font-medium">{stock.name}</td>
+                  <td className="px-6 py-4 text-right font-mono text-sm">{stock.open?.toLocaleString('en-IN', { minimumFractionDigits: 2 }) || '—'}</td>
+                  <td className="px-6 py-4 text-right font-mono text-[10px] text-text-secondary">
+                    <span className="text-accent-green">{stock.high?.toFixed(1) || '—'}</span>
+                    <span className="mx-1">/</span>
+                    <span className="text-accent-red">{stock.low?.toFixed(1) || '—'}</span>
+                  </td>
                   <td className={`px-6 py-4 text-right font-bold transition-all duration-300 ${
                     stock.flash === 'up' ? 'text-accent-green bg-accent-green/10' : 
                     stock.flash === 'down' ? 'text-accent-red bg-accent-red/10' : ''
