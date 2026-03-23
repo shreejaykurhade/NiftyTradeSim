@@ -23,6 +23,14 @@ function initSocket(httpServer) {
       }
     });
 
+    // Subscribe to private user room for order updates
+    socket.on('subscribe_user', (userId) => {
+      if (userId) {
+        socket.join(`user:${userId}`);
+        console.log(`👤 User ${userId} joined their private room`);
+      }
+    });
+
     socket.on('unsubscribe', (symbols) => {
       if (Array.isArray(symbols)) {
         symbols.forEach((s) => socket.leave(`stock:${s}`));

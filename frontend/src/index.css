@@ -11,18 +11,18 @@
   --color-border-color: #2b3139;
 }
 
-:root {
+html, body {
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  height: 100%;
 }
 
-body {
-  background-color: var(--bg-primary);
-  color: var(--text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  margin: 0;
-  -webkit-font-smoothing: antialiased;
+#root {
+  min-height: 100%;
 }
 
 .glass {

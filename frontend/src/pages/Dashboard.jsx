@@ -50,7 +50,20 @@ export default function Dashboard() {
     <div className="py-4 space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-bold">NIFTY 50 Market</h1>
+          <h1 className="text-2xl font-bold flex items-center gap-3">
+            NIFTY 50 Market
+            {stocks[0]?.isMarketOpen ? (
+              <span className="text-[10px] font-black text-accent-green bg-accent-green/10 px-2 py-0.5 rounded-full border border-accent-green/20 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse"></span>
+                LIVE
+              </span>
+            ) : (
+              <span className="text-[10px] font-black text-accent-red bg-accent-red/10 px-2 py-0.5 rounded-full border border-accent-red/20 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-red"></span>
+                CLOSED
+              </span>
+            )}
+          </h1>
           <p className="text-text-secondary text-sm">Real-time prices from Indian indices</p>
         </div>
         

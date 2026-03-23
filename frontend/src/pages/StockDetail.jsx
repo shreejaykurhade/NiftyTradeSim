@@ -104,6 +104,14 @@ export default function StockDetail() {
     }
   });
 
+  useOrderSocket(user?.id, (order) => {
+    if (order.symbol === symbol) {
+      console.log('🎯 Relevant order executed!', order);
+      refreshUser();
+      // Optionally refetch candles/holdings status if we add that UI
+    }
+  });
+
   const handleTrade = async (type) => {
     setOrderStatus({ type: 'loading', message: `Processing ${type} order...` });
     try {
@@ -187,7 +195,20 @@ export default function StockDetail() {
         <div className="card glass space-y-6 shadow-xl border-t-4 border-accent-green">
           <div className="flex justify-between items-end border-b border-border-color pb-4">
             <div>
-              <p className="text-xs text-text-secondary uppercase tracking-wider">Live Price (NSE)</p>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs text-text-secondary uppercase tracking-wider">Live Price (NSE)</span>
+                {livePrice?.isMarketOpen ? (
+                  <span className="flex items-center gap-1 text-[8px] font-black text-accent-green bg-accent-green/10 px-1.5 py-0.5 rounded-full border border-accent-green/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse"></span>
+                    MARKET LIVE
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[8px] font-black text-accent-red bg-accent-red/10 px-1.5 py-0.5 rounded-full border border-accent-red/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-accent-red"></span>
+                    MARKET CLOSED
+                  </span>
+                )}
+              </div>
               <h2 className="text-3xl font-bold font-mono">₹ {livePrice?.price?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h2>
             </div>
             <div className={`text-right ${livePrice?.changePct >= 0 ? 'text-accent-green' : 'text-accent-red'}`}>

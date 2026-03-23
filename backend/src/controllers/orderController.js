@@ -66,6 +66,18 @@ async function buyStock(req, res) {
       }
 
       await session.commitTransaction();
+      
+      // Notify client via WebSocket for instant UI refresh
+      const io = require('../websockets/socket').getIO();
+      if (io) {
+        io.to(`user:${req.user.userId}`).emit('order_executed', {
+          type: 'BUY',
+          symbol: stockSymbol,
+          quantity,
+          price
+        });
+      }
+
       res.status(201).json({ message: 'Buy order executed', order: order[0] });
     } catch (err) {
       await session.abortTransaction();
@@ -123,6 +135,18 @@ async function sellStock(req, res) {
       }
 
       await session.commitTransaction();
+
+      // Notify client via WebSocket for instant UI refresh
+      const io = require('../websockets/socket').getIO();
+      if (io) {
+        io.to(`user:${req.user.userId}`).emit('order_executed', {
+          type: 'SELL',
+          symbol: stockSymbol,
+          quantity,
+          price
+        });
+      }
+
       res.status(201).json({ message: 'Sell order executed', order: order[0] });
     } catch (err) {
       await session.abortTransaction();

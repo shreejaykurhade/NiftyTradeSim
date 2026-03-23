@@ -28,7 +28,7 @@ export default function Landing() {
   if (user) return <Navigate to="/" />;
 
   return (
-    <div className="min-h-screen bg-bg-primary text-text-primary overflow-x-hidden relative">
+    <div className="bg-bg-primary text-text-primary relative">
       {/* Background Orbs */}
       <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-accent-green/5 rounded-full blur-[160px]" />
       <div className="absolute bottom-[-10%] right-[-20%] w-[50%] h-[50%] bg-accent-blue/5 rounded-full blur-[160px]" />
@@ -166,89 +166,143 @@ export default function Landing() {
         </div>
       </div>
 
-      {/* ADDITIONAL PROFESSIONAL SECTIONS */}
-      <div className="container mx-auto px-6 py-20 relative z-10 border-t border-border-color/10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center mb-40">
-          <div className="space-y-8">
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight leading-[1.1]">
-              Institutional Grade <br /> <span className="text-accent-blue">AI Logic.</span>
-            </h2>
-            <p className="text-text-secondary text-lg leading-relaxed">
-              Don't just trade on gut feeling. Leverage our **6-Agent Sentiment Pipeline** that cross-references 
-              domestic news, sectoral trends, and global macro-economic indicators in real-time.
-            </p>
+      {/* INSTITUTIONAL AI SECTION */}
+      <div className="container mx-auto px-6 py-32 relative z-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-24 items-center">
+          <div className="space-y-10">
             <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] font-black uppercase tracking-[0.2em]">
+                Neural Infrastructure
+              </div>
+              <h2 className="text-5xl md:text-6xl font-black tracking-tighter leading-[0.95] text-white">
+                Institutional Grade <br /> 
+                <span className="text-indigo-400">AI Reasoning.</span>
+              </h2>
+              <p className="text-text-secondary text-lg leading-relaxed max-w-xl font-medium">
+                Don't just trade on gut feeling. Leverage our **6-Agent Sentiment Pipeline** that cross-references 
+                domestic news, sectoral trends, and global macro-economic indicators in real-time.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
               {[
-                { label: "Investigator Agent", desc: "Deep-dives into Tavily's real-time financial news index." },
-                { label: "Analyst Agent", desc: "Synthesizes raw data into actionable technical signals." },
-                { label: "Auditor Agent", desc: "Ensures no hallucinations; strictly verified data citations." }
+                { label: "Investigator Agent", desc: "Deep-dives into Tavily's real-time financial news index.", icon: "🔍" },
+                { label: "Analyst Agent", desc: "Synthesizes raw data into actionable technical signals.", icon: "📊" },
+                { label: "Auditor Agent", desc: "Ensures no hallucinations; strictly verified data citations.", icon: "🛡️" }
               ].map((item, idx) => (
-                <div key={idx} className="flex gap-4 items-start group">
-                  <div className="w-5 h-5 rounded bg-accent-blue/20 text-accent-blue flex items-center justify-center text-[10px] font-bold mt-1 group-hover:scale-110 transition-transform">✓</div>
-                  <div>
-                    <h5 className="font-bold text-sm">{item.label}</h5>
-                    <p className="text-xs text-text-secondary">{item.desc}</p>
+                <div key={idx} className="flex gap-6 p-6 rounded-2xl bg-bg-secondary/30 border border-border-color/50 hover:border-indigo-500/30 transition-all group">
+                  <div className="w-12 h-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xl group-hover:scale-110 transition-transform shadow-inner">
+                    {item.icon}
+                  </div>
+                  <div className="space-y-1">
+                    <h5 className="font-black text-white text-base tracking-tight">{item.label}</h5>
+                    <p className="text-sm text-text-secondary leading-snug">{item.desc}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+
           <div className="relative">
-            <div className="absolute -inset-4 bg-accent-blue/10 blur-3xl opacity-30" />
-            <div className="card glass p-8 border-accent-blue/20 space-y-6">
-              <div className="flex justify-between items-center">
-                <span className="text-xs font-bold text-accent-blue tracking-widest uppercase">Proprietary Grader</span>
-                <span className="text-xs font-mono text-text-secondary">ver: 0.8.4</span>
-              </div>
-              <div className="p-6 bg-bg-primary/60 rounded-2xl border border-border-color space-y-4">
-                <div className="flex justify-between items-end">
+            {/* Decorative Glow */}
+            <div className="absolute -inset-10 bg-indigo-500/10 blur-[120px] opacity-40 rounded-full" />
+            
+            <div className="card glass !p-1 border-border-color/50 rounded-[2rem] overflow-hidden shadow-2xl relative z-10">
+              <div className="bg-bg-primary/80 backdrop-blur-xl p-8 rounded-[1.8rem] space-y-8 border border-white/5">
+                <div className="flex justify-between items-center border-b border-white/5 pb-6">
                   <div className="space-y-1">
-                    <p className="text-[10px] text-text-secondary uppercase">Recommendation</p>
-                    <p className="text-3xl font-black text-accent-green italic">Strong Buy</p>
+                    <span className="text-[10px] font-black text-indigo-400 tracking-[0.3em] uppercase">Intelligence Hub</span>
+                    <h3 className="text-xl font-bold text-white tracking-tight">Proprietary Grader</h3>
                   </div>
-                  <div className="text-right">
-                    <p className="text-[10px] text-text-secondary uppercase">Signal Strength</p>
-                    <p className="text-xl font-bold text-white">92%</p>
+                  <div className="px-3 py-1 rounded-md bg-white/5 border border-white/10 font-mono text-[10px] text-text-secondary">
+                    VER: 0.8.4
                   </div>
                 </div>
-                <p className="text-xs text-text-secondary leading-relaxed border-t border-border-color pt-4">
-                  "Cluster analysis of global tech indices shows a +3.4% correlation with NIFTY IT outlook over the next 48 hours."
-                </p>
+
+                <div className="space-y-10">
+                  <div className="flex justify-between items-center">
+                    <div className="space-y-1">
+                      <p className="text-[10px] text-text-secondary uppercase font-bold tracking-widest">Recommendation</p>
+                      <p className="text-4xl font-black text-accent-green italic tracking-tighter">STRONG BUY</p>
+                    </div>
+                    <div className="text-right space-y-1">
+                      <p className="text-[10px] text-text-secondary uppercase font-bold tracking-widest">Signal Strength</p>
+                      <p className="text-4xl font-black text-white tabular-nums">92%</p>
+                    </div>
+                  </div>
+
+                  <div className="relative p-6 bg-accent-green/5 rounded-2xl border border-accent-green/20">
+                    <div className="absolute -top-3 left-6 px-2 bg-bg-primary text-[9px] font-black text-accent-green uppercase tracking-widest">
+                      Live Analysis
+                    </div>
+                    <p className="text-sm text-text-primary leading-relaxed font-medium italic">
+                      "Cluster analysis of global tech indices shows a +3.4% correlation with NIFTY IT outlook over the next 48 hours."
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1 text-center">
+                      <p className="text-[9px] text-text-secondary uppercase font-bold">Accuracy</p>
+                      <p className="text-lg font-bold text-white">99.2%</p>
+                    </div>
+                    <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1 text-center">
+                      <p className="text-[9px] text-text-secondary uppercase font-bold">Latency</p>
+                      <p className="text-lg font-bold text-white">&lt; 150ms</p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Feature Grid - Footer Style */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-20">
+        {/* FEATURE GRID Section */}
+        <div className="mt-40 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { title: "5s WebSockets", desc: "Real-time liquidity polling.", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
-            { title: "30Y History", desc: "Backtest every cycle since 1990.", icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" },
-            { title: "Smart Portfolios", desc: "Live P/L tracking with precision.", icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14" },
-            { title: "Verified Links", desc: "Direct access to corporate hubs.", icon: "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" }
+            { title: "5s WebSockets", desc: "Real-time liquidity polling.", icon: "⚡", accent: "green" },
+            { title: "30Y History", desc: "Backtest every cycle since 1990.", icon: "⏳", accent: "blue" },
+            { title: "Smart Portfolios", desc: "Live P/L tracking with precision.", icon: "⚖️", accent: "indigo" },
+            { title: "Verified Links", desc: "Direct access to corporate hubs.", icon: "🔗", accent: "red" }
           ].map((f, i) => (
-            <div key={i} className="space-y-2 group cursor-default">
-              <div className="w-10 h-10 rounded-xl bg-bg-secondary flex items-center justify-center border border-border-color group-hover:border-accent-green/40 transition-all">
-                <svg className="w-5 h-5 text-accent-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d={f.icon} />
-                </svg>
+            <div key={i} className="card glass p-8 hover:bg-white/5 transition-all group border-border-color/30">
+              <div className={`w-12 h-12 rounded-2xl bg-bg-secondary flex items-center justify-center text-2xl border border-border-color mb-6 group-hover:scale-110 group-hover:border-accent-${f.accent}/40 transition-all`}>
+                {f.icon}
               </div>
-              <h3 className="font-black text-sm">{f.title}</h3>
-              <p className="text-[11px] text-text-secondary leading-normal">{f.desc}</p>
+              <h3 className="font-black text-lg text-white mb-2 tracking-tight">{f.title}</h3>
+              <p className="text-sm text-text-secondary leading-relaxed font-medium">{f.desc}</p>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Footer Branding */}
-      <div className="pb-16 text-center border-t border-border-color/10 pt-16">
-        <div className="opacity-20 text-[10px] font-black tracking-[0.5em] uppercase mb-4">
-          Nifty50Sim • Financial Intelligence Infrastructure
+      {/* FOOTER */}
+      <footer className="container mx-auto px-6 pt-24 pb-12 relative z-10">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-12 border-t border-white/5 pt-12">
+          <div className="space-y-4 text-center md:text-left">
+            <div className="text-xl font-black italic tracking-tighter text-white">Nifty50Sim</div>
+            <p className="text-[10px] text-text-secondary font-black tracking-[0.4em] uppercase opacity-60">Financial Intelligence Infrastructure</p>
+          </div>
+          
+          <div className="flex gap-12 text-[10px] font-black tracking-widest text-text-secondary uppercase">
+            <a href="#" className="hover:text-white transition-colors">Documentation</a>
+            <a href="#" className="hover:text-white transition-colors">API Status</a>
+            <a href="#" className="hover:text-white transition-colors">Terms</a>
+          </div>
         </div>
-        <div className="text-[9px] text-text-secondary opacity-40">
-          Powered by Gemini 1.5 Pro & Tavily Deep Search • Non-Commercial Trading Simulator
+
+        <div className="mt-20 text-center space-y-2">
+          <p className="text-[10px] text-text-secondary opacity-40 font-medium">
+            Powered by Gemini 1.5 Pro & Tavily Deep Search • Non-Commercial Trading Simulator
+          </p>
+          <div className="flex justify-center items-center gap-4 text-[9px] text-text-secondary opacity-30 font-mono">
+            <span>© 2026 NIFTY50SIM INC.</span>
+            <span className="w-1 h-1 rounded-full bg-border-color" />
+            <span>METADATA_VERSION: 2.1.0</span>
+            <span className="w-1 h-1 rounded-full bg-border-color" />
+            <span>REGION: NSE-INDIA</span>
+          </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }
