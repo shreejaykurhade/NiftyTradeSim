@@ -82,36 +82,42 @@ export default function Chart({ data, liveUpdate, timeframe, range }) {
 
   // Handle live WebSocket updates
   useEffect(() => {
-    if (seriesRef.current && liveUpdate && liveUpdate.price) {
-      const now = new Date();
-      let timestamp = Math.floor(now.getTime() / 1000);
+    if (!seriesRef.current || !liveUpdate || !liveUpdate.price) return;
 
-      // Normalize timestamp based on timeframe
-      if (timeframe === '1D') {
-        now.setUTCHours(0, 0, 0, 0);
-        timestamp = Math.floor(now.getTime() / 1000);
-      } else if (timeframe === '1W') {
-        const day = now.getUTCDay();
-        const diff = now.getUTCDate() - day + (day === 0 ? -6 : 1); // Monday
-        now.setUTCDate(diff);
-        now.setUTCHours(0, 0, 0, 0);
-        timestamp = Math.floor(now.getTime() / 1000);
-      } else if (timeframe === '1M') {
-        now.setUTCSeconds(0, 0);
-        timestamp = Math.floor(now.getTime() / 1000);
-      }
+    // Use the server-provided time, normalized to the current candle period boundary
+    const now = new Date();
+    let timestamp;
 
-      try {
-        seriesRef.current.update({
-          time: timestamp,
-          open: liveUpdate.open || liveUpdate.price,
-          high: liveUpdate.high || liveUpdate.price,
-          low: liveUpdate.low || liveUpdate.price,
-          close: liveUpdate.price,
-        });
-      } catch (err) {
-        console.warn('Chart update failed:', err);
-      }
+    if (timeframe === '1D') {
+      const d = new Date(now);
+      d.setUTCHours(0, 0, 0, 0);
+      timestamp = Math.floor(d.getTime() / 1000);
+    } else if (timeframe === '1W') {
+      const d = new Date(now);
+      const day = d.getUTCDay();
+      const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
+      d.setUTCDate(diff);
+      d.setUTCHours(0, 0, 0, 0);
+      timestamp = Math.floor(d.getTime() / 1000);
+    } else if (timeframe === '1M') {
+      const d = new Date(now);
+      d.setUTCDate(1);
+      d.setUTCHours(0, 0, 0, 0);
+      timestamp = Math.floor(d.getTime() / 1000);
+    } else {
+      timestamp = liveUpdate.time || Math.floor(now.getTime() / 1000);
+    }
+
+    try {
+      seriesRef.current.update({
+        time: timestamp,
+        open: liveUpdate.open || liveUpdate.price,
+        high: liveUpdate.high || liveUpdate.price,
+        low: liveUpdate.low || liveUpdate.price,
+        close: liveUpdate.price,
+      });
+    } catch (err) {
+      // Silently ignore — can happen when the update is older than the last chart point
     }
   }, [liveUpdate, timeframe]);
 

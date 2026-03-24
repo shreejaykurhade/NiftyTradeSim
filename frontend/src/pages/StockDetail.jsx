@@ -61,7 +61,7 @@ export default function StockDetail() {
     setLoadingSentiment(true);
     setSentimentError(null);
     try {
-      const { data } = await api.get(`/sentiment/${symbol}${isRefresh ? '?refresh=true' : ''}`, { timeout: 120000 });
+      const { data } = await api.get(`/sentiment/${symbol}${isRefresh ? '?refresh=true' : ''}`, { timeout: 240000 });
       if (data.error) throw new Error(data.error);
       setSentiment(data);
     } catch (err) {
@@ -276,8 +276,18 @@ export default function StockDetail() {
           </div>
 
           {sentimentError && (
-            <div className="p-4 rounded bg-accent-red/10 text-accent-red text-xs text-center border border-accent-red/20 font-bold">
-              ⚠️ {sentimentError}
+            <div className="p-6 rounded-2xl bg-bg-primary/50 border border-accent-red/20 text-center space-y-3">
+              <div className="text-3xl">🔑</div>
+              <p className="font-black text-white text-sm">Google API Key Required</p>
+              <p className="text-xs text-text-secondary max-w-md mx-auto leading-relaxed">
+                {sentimentError.includes('API key') || sentimentError.includes('Gemini') 
+                  ? 'Your GOOGLE_API_KEY in backend/.env is invalid or over quota. Get a fresh key at aistudio.google.com → restart backend.'
+                  : sentimentError
+                }
+              </p>
+              <button onClick={() => fetchSentiment(true)} className="text-[10px] px-4 py-1.5 rounded bg-accent-red/20 text-accent-red hover:bg-accent-red hover:text-white transition-all font-black">
+                RETRY
+              </button>
             </div>
           )}
 

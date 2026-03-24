@@ -16,24 +16,31 @@ export function getSocket() {
 
 // Hook: subscribe to market_update events
 export function useMarketSocket(onUpdate) {
+  const onUpdateRef = useRef(onUpdate);
+  onUpdateRef.current = onUpdate;
+
   useEffect(() => {
     const sock = getSocket();
-    const handler = (data) => onUpdate(data);
+    const handler = (data) => onUpdateRef.current(data);
     sock.on('market_update', handler);
     return () => sock.off('market_update', handler);
-  }, [onUpdate]);
+  }, []); // only run once — ref keeps callback fresh
 }
 
 // Hook: subscribe to private user order events
+// Uses ref so inline callbacks don't cause repeated re-subscriptions
 export function useOrderSocket(userId, onOrderExecuted) {
+  const callbackRef = useRef(onOrderExecuted);
+  callbackRef.current = onOrderExecuted;
+
   useEffect(() => {
     if (!userId) return;
     const sock = getSocket();
-    sock.emit('subscribe_user', userId);
-    
-    const handler = (data) => onOrderExecuted(data);
+    sock.emit('subscribe_user', userId); // subscribe only once per userId
+
+    const handler = (data) => callbackRef.current(data);
     sock.on('order_executed', handler);
-    
+
     return () => sock.off('order_executed', handler);
-  }, [userId, onOrderExecuted]);
+  }, [userId]); // only re-run if userId changes
 }

@@ -1,146 +1,214 @@
 const axios = require('axios');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-let _genAI = null;
-
-function getGemini() {
-  if (!_genAI) {
-    if (!process.env.GOOGLE_API_KEY) throw new Error("Missing GOOGLE_API_KEY");
-    _genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-  }
-  return _genAI;
-}
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Sequential Multi-Agent Flow with Model Fallback
+ * Sequential 6-Agent Agentic Sentiment Pipeline — REBUILT FROM SCRATCH
+ * 
+ * DESIGN PHILOSOPHY:
+ * 1. ZERO EXTRA NETWORK CALLS: Removed Google Embeddings API completely (fixed 404s).
+ * 2. 15s BREATHE PAUSE: Strictly wait 15 seconds after every agent to reset rate limits.
+ * 3. EXPLICIT SEQUENCES: Agent 5 waits for 4. Agent 6 waits for 5.
+ * 4. LOCAL RAG: Quick keyword selection filters data down to fit LLM window instantly.
  */
 async function getStockSentiment(symbol, stockName, sector) {
-  console.log(`🤖 [Step 0] Initializing AI Pipeline for ${symbol}...`);
+  console.log(`\n🤖 [Step 0] Initializing Robust AI Pipeline for ${symbol}...`);
 
-  try {
-    const genAI = getGemini();
-    
-    // Fallback logic for model selection
-    let model = null;
-    const modelCandidates = [
-      "gemini-1.5-flash", 
-      "gemini-1.5-flash-latest", 
-      "gemini-1.5-pro",
-      "gemini-1.5-pro-latest",
-      "gemini-2.0-flash-exp",
-      "gemini-2.0-flash"
-    ];
-    
-    for (const m of modelCandidates) {
-      try {
-        const testModel = genAI.getGenerativeModel({ model: m });
-        // Minimal test to verify access
-        await testModel.generateContent({ contents: [{ role: 'user', parts: [{ text: "hi" }] }], generationConfig: { maxOutputTokens: 1 } });
-        model = testModel;
-        console.log(`✅ Using Gemini Model: ${m}`);
-        break;
-      } catch (e) {
-        console.log(`⚠️ Model ${m} failed: ${e.message.substring(0, 50)}`);
-      }
-    }
+  if (!process.env.GOOGLE_API_KEY) throw new Error("Missing GOOGLE_API_KEY in .env");
+  if (!process.env.TAVILY_API_KEY) throw new Error("Missing TAVILY_API_KEY in .env");
 
-    if (!model) throw new Error("No accessible Gemini models found for this API key.");
+  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
-    const tavilyKey = process.env.TAVILY_API_KEY;
-
-    async function searchTavily(query) {
+  // ─── TAVILY SEARCH HELPER ──────────────────────────────────────────────────
+  async function searchTavily(query) {
+    try {
       const res = await axios.post('https://api.tavily.com/search', {
-        api_key: tavilyKey,
+        api_key: process.env.TAVILY_API_KEY,
         query,
         max_results: 5,
         search_depth: "advanced"
-      });
-      return res.data.results;
+      }, { timeout: 20000 });
+      return res.data.results || [];
+    } catch (e) {
+      console.warn(`   ⚠️ Tavily search failed: ${e.message}`);
+      return [];
     }
-
-    // Agent 1: Domestic Investigator
-    console.log('🕵️ [Agent 1] Investigator: Domestic...');
-    const dom = await searchTavily(`${symbol} ${stockName} Nifty 50 News India today`);
-    const domCtx = dom.map(r => `[${r.title}](${r.url}): ${r.content.substring(0, 700)}`).join('\n');
-
-    // Agent 2: Sectoral Investigator
-    console.log('🕵️ [Agent 2] Investigator: Sectoral...');
-    const sec = await searchTavily(`Indian ${sector} sector trends and ${stockName} competition`);
-    const secCtx = sec.map(r => `[${r.title}](${r.url}): ${r.content.substring(0, 700)}`).join('\n');
-
-    // Agent 3: Global Investigator
-    console.log('🕵️ [Agent 3] Investigator: Global...');
-    const glob = await searchTavily(`Global ${sector} outlook and world-wide stock performance for ${symbol}`);
-    const globCtx = glob.map(r => `[${r.title}](${r.url}): ${r.content.substring(0, 700)}`).join('\n');
-
-    // Agent 4: Analyst
-    console.log('📊 [Agent 4] Analyst processing...');
-    const analystPrompt = `System: You are an Elite Financial Data Scientist at a top-tier quantitative firm.
-      Provide a professional, clean report for ${stockName} (${symbol}).
-      
-      STRICT FORMATTING RULES:
-      - Use ONLY Plain Text. 
-      - NO markdown symbols (NO #, NO *, NO **).
-      - Section Headers must be ALL-CAPS (e.g., FUNDAMENTAL TRENDS).
-      - Use simple dashes '-' for bullets.
-      - DO NOT use conversational fillers or "As an AI...".
-      
-      CONTENT SECTIONS:
-      1. FUNDAMENTAL TRENDS: Describe recovery/fluctuations, diversification.
-      2. SECTOR COMPARISON: Relative position in the Indian market.
-      3. STRATEGIC OUTLOOK: Focus on new energy/growth drivers.
-      
-      DATA SOURCE:
-      DOMESTIC: ${domCtx}
-      SECTOR: ${secCtx}
-      GLOBAL: ${globCtx}`;
-    const analystRes = await model.generateContent(analystPrompt);
-    const analysis = analystRes.response.text();
-
-    // Agent 5 & 6: Auditor/Grader
-    console.log('⚖️ [Agent 5+6] Auditor & Grader finalizing...');
-    const finalPrompt = `Portfolio Manager. Based on analysis: ${analysis.substring(0, 3000)}
-      and SEARCH CONTEXT:
-      ${domCtx.substring(0, 1000)}
-      ${secCtx.substring(0, 1000)}
-      ${globCtx.substring(0, 1000)}
-
-      Output ONLY valid JSON.
-      LOGIC RULES:
-      - overallScore: 0-100 (0=Extreme Bearish, 100=Extreme Bullish).
-      - recommendation must match overallScore:
-        * 85-100: Strong Buy
-        * 65-84: Buy
-        * 40-64: Hold
-        * 20-39: Sell
-        * 0-19: Strong Sell
-      - buyScore, sellScore, holdScore: Probabilities (0-100) that must sum to 100.
-
-      JSON STRUCTURE:
-      {
-        "score": number,
-        "buyScore": number,
-        "sellScore": number,
-        "holdScore": number,
-        "recommendation": "String",
-        "summary": "2-sentence summary",
-        "citations": [{"title": "String", "url": "String"}]
-      }`;
-    const finalRes = await model.generateContent(finalPrompt);
-    const text = finalRes.response.text();
-    const result = JSON.parse(text.replace(/```json/g, "").replace(/```/g, "").trim());
-
-    console.log('✅ Sentiment Analysis completed for ' + symbol);
-    return {
-      symbol,
-      ...result,
-      explanation: analysis,
-      timestamp: new Date().toISOString()
-    };
-  } catch (err) {
-    console.error('❌ Pipeline Error:', err.message);
-    throw new Error('Sentiment Analysis failed: ' + err.message);
   }
+
+  // ─── ROBUST GEMINI CALLER (15s MIN DELAY) ───────────────────────────────
+  async function callGemini(prompt, agentLabel) {
+    const candidates = [
+      "gemini-3.1-flash-lite-preview", 
+      "gemini-3.1-pro", 
+      "gemini-2.5-flash", 
+      "gemini-2.0-flash"
+    ];
+    
+    for (const modelName of candidates) {
+      let retries = 2;
+      while (retries > 0) {
+        try {
+          console.log(`   ↳ [${agentLabel}] Calling ${modelName}...`);
+          const model = genAI.getGenerativeModel({ model: modelName });
+          const res = await model.generateContent(prompt);
+          
+          console.log(`   ✅ [${agentLabel}] Success! Pausing 15s for rate limit safety...`);
+          await sleep(15000); // 15s deliberate pause
+          return res.response.text();
+        } catch (e) {
+          const errMsg = e.message || String(e);
+          console.error(`   ⚠️ [${agentLabel}] ${modelName} failed: ${errMsg.substring(0, 150)}`);
+          
+          const isRateLimit = errMsg.includes('429') || errMsg.includes('quota') || errMsg.includes('RESOURCE_EXHAUSTED');
+          if (isRateLimit && retries > 1) {
+            console.log(`   ⏳ Rate limit detected. Waiting 15s before retry...`);
+            await sleep(15000);
+            retries--;
+          } else {
+            console.log(`   🔄 Falling back to next model...`);
+            await sleep(2000); // Small pause before switching models
+            break; 
+          }
+        }
+      }
+    }
+    throw new Error(`[${agentLabel}] All Gemini models failed. The pipeline was stopped for safety.`);
+  }
+
+  // ─── AGENTS 1, 2, 3: DATA GATHERING ───────────────────────────────────────
+  console.log('🕵️  [Agent 1] Gathering Domestic News...');
+  const dom = await searchTavily(`${stockName} ${symbol} NSE India stock news today`);
+  console.log(`   ✅ Agent 1 complete. Pausing 15s for stability...`);
+  await sleep(15000);
+
+  console.log('🕵️  [Agent 2] Gathering Sectoral Insights...');
+  const sec = await searchTavily(`${sector} sector overview India 2025 ${stockName}`);
+  console.log(`   ✅ Agent 2 complete. Pausing 15s for stability...`);
+  await sleep(15000);
+
+  console.log('🕵️  [Agent 3] Gathering Global Macro Data...');
+  const glob = await searchTavily(`Global ${sector} trends impact on ${symbol}`);
+  console.log(`   ✅ Agent 3 complete. Pausing 15s for stability...`);
+  await sleep(15000);
+
+  const allCitations = [...dom, ...sec, ...glob]
+    .map(r => ({ title: r.title, url: r.url }))
+    .filter(c => c.url);
+
+  // ─── LOCAL KEYWORD RAG (ZERO LATENCY) ────────────────────────────────────
+  const rawChunks = [
+     ...dom.map(r => `[DOMESTIC] ${r.title}: ${r.content || ''}`),
+     ...sec.map(r => `[SECTOR] ${r.title}: ${r.content || ''}`),
+     ...glob.map(r => `[GLOBAL] ${r.title}: ${r.content || ''}`)
+  ].filter(c => c.length > 30);
+
+  function getContext(query, limit = 8) {
+     if (rawChunks.length === 0) return "No data available.";
+     const keywords = query.toLowerCase().split(' ').filter(w => w.length > 3);
+     
+     const scored = rawChunks.map(chunk => {
+        let score = 0;
+        const text = chunk.toLowerCase();
+        keywords.forEach(k => { if (text.includes(k)) score++; });
+        return { text: chunk, score };
+     });
+
+     scored.sort((a,b) => b.score - a.score);
+     return scored.slice(0, limit).map(s => s.text).join("\n\n---\n");
+  }
+
+  // ─── AGENT 4: ANALYST ─────────────────────────────────────────────────────
+  console.log('📊 [Agent 4] Analyst processing deep-dive...');
+  const domCtx = getContext(`${stockName} domestic news`, 6);
+  const secCtx = getContext(`${sector} sector India`, 6);
+  const globCtx = getContext(`global market trends ${sector}`, 6);
+
+  const analystPrompt = `System: You are an Elite Financial Data Scientist at a top-tier quantitative firm. 
+Provide a COMPREHENSIVE DEEP-DIVE report for ${stockName} (${symbol}). 
+
+STRICT FORMATTING RULES:
+- Use ONLY Plain Text. 
+- NO markdown symbols (NO #, NO *, NO **).
+- Section Headers must be ALL-CAPS (e.g., FUNDAMENTAL TRENDS).
+- Use simple dashes '-' for bullets.
+- Length: Be extremely detailed (aim for 800+ words).
+
+CONTENT SECTIONS:
+1. FUNDAMENTAL TRENDS: Describe recovery/fluctuations, revenue diversification, and balance sheet health.
+2. SECTOR COMPARISON: Relative position in the Indian market vs peers and future outlook.
+3. STRATEGIC OUTLOOK: Deep-dive into new energy, vertical integration, and 5-year growth drivers.
+
+DATA SOURCE:
+DOMESTIC: ${domCtx}
+SECTOR: ${secCtx}
+GLOBAL: ${globCtx}`;
+
+  const analystReport = await callGemini(analystPrompt, 'Agent 4 - Analyst');
+
+  // ─── AGENT 5: AUDITOR ─────────────────────────────────────────────────────
+  console.log('🛡️  [Agent 5] Financial Auditor Starting...');
+  const totalContext = `${domCtx}\n${secCtx}\n${globCtx}`;
+  const auditorPrompt = `Verify the following 800-word analyst report for ${stockName} against the research data.
+Your task is to audit for accuracy but KEEP the full length and detail of the report. 
+Do not summarize it; just fix inaccuracies. Maintain the ALL-CAPS header format.
+
+RESEARCH DATA:
+${totalContext}
+
+ANALYST REPORT:
+${analystReport}
+
+Output: The full, audited, detailed plain-text report only.`;
+
+  const auditedReport = await callGemini(auditorPrompt, 'Agent 5 - Auditor');
+
+  // ─── AGENT 6: GRADER ──────────────────────────────────────────────────────
+  console.log('⚖️  [Agent 6] Portfolio Grader Starting...');
+  const graderPrompt = `Based on the audited report and research, provide a final score and summary.
+
+Output ONLY valid JSON.
+COMPULSORY: Include a "citations" array with 3-5 real sources from the context (title and url).
+
+LOGIC RULES:
+- score: 0-100 (0=Extreme Bearish, 100=Extreme Bullish).
+- recommendation: Strong Buy (85+), Buy (65-84), Hold (40-64), Sell (20-39), Strong Sell (0-19).
+- buyScore, sellScore, holdScore: Probabilities (0-100) that must sum to exactly 100.
+
+RESEARCH CONTEXT:
+${totalContext.substring(0, 3000)}
+
+AUDITED REPORT:
+${auditedReport.substring(0, 1000)} ... (Full report appended below)
+
+JSON STRUCTURE:
+{
+  "score": number,
+  "recommendation": "String",
+  "buyScore": number,
+  "holdScore": number,
+  "sellScore": number,
+  "summary": "2-sentence professional executive summary",
+  "citations": [{"title": "String", "url": "String"}]
+}`;
+
+  const rawJson = await callGemini(graderPrompt, 'Agent 6 - Grader');
+  const jsonStr = rawJson.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+  const result = JSON.parse(jsonStr);
+
+  // Robust citation fallback using Tavily results if the LLM fails to provide them
+  if (!result.citations || result.citations.length < 3) {
+    result.citations = allCitations.slice(0, 5);
+  }
+
+  console.log(`✅ [Complete] ${symbol} -> ${result.recommendation} (${result.score})`);
+
+  return {
+    symbol,
+    ...result,
+    explanation: auditedReport, // THE DEEP-DIVE REPORT GOES HERE
+    timestamp: new Date().toISOString()
+  };
 }
 
 module.exports = { getStockSentiment };
