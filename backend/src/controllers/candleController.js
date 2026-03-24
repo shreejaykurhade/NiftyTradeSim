@@ -1,3 +1,5 @@
+const YahooFinance = require('yahoo-finance2').default;
+const yahooFinance = new YahooFinance();
 const StockCandle = require('../models/StockCandle');
 
 const VALID_TIMEFRAMES = ['1D', '1W', '1M'];
@@ -13,8 +15,29 @@ async function getCandles(req, res) {
       return res.status(400).json({ error: `Invalid timeframe. Use: ${VALID_TIMEFRAMES.join(', ')}` });
     }
 
-    // Always fetch base 1D data for aggregation, or if 1D is specifically requested
-    // This ensures we always have the 'range' even if 1W/1M specific seeds haven't finished
+    // HIGH RESOLUTION 1D VIEW: Fetch directly from Yahoo (1-minute intervals)
+    if (timeframe === '1D') {
+      try {
+        const chart = await yahooFinance.chart(symbol, { interval: '1m', period1: '2d' });
+        const quotes = chart.quotes.filter(q => q.open && q.close);
+        
+        const formatted = quotes.map(q => ({
+          time: Math.floor(new Date(q.date).getTime() / 1000),
+          open: q.open,
+          high: q.high,
+          low: q.low,
+          close: q.close,
+          volume: q.volume
+        }));
+
+        return res.json({ symbol, timeframe: '1D', count: formatted.length, data: formatted });
+      } catch (err) {
+        console.error('Yahoo Chart fetch failed:', err.message);
+        // Fallback to DB below if YF fails
+      }
+    }
+
+    // HISTORICAL / AGGREGATED VIEWS: Fetch from DB (Daily candles)
     const baseTimeframe = '1D';
     const rawCandles = await StockCandle.find({ symbol, timeframe: baseTimeframe })
       .sort({ timestamp: -1 })

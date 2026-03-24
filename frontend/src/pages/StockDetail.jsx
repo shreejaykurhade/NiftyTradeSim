@@ -8,10 +8,10 @@ import Chart from '../components/Chart';
 // Helper functions for technical analysis
 function calculateRSI(candles, period = 14) {
   if (!candles || candles.length < period + 1) return 50;
-  
+
   const gains = [];
   const losses = [];
-  
+
   for (let i = 1; i <= period; i++) {
     const change = candles[candles.length - i].close - candles[candles.length - i - 1].close;
     if (change > 0) {
@@ -22,24 +22,24 @@ function calculateRSI(candles, period = 14) {
       losses.push(Math.abs(change));
     }
   }
-  
+
   const avgGain = gains.reduce((sum, gain) => sum + gain, 0) / period;
   const avgLoss = losses.reduce((sum, loss) => sum + loss, 0) / period;
-  
+
   if (avgLoss === 0) return 100;
-  
+
   const rs = avgGain / avgLoss;
   return 100 - (100 / (1 + rs));
 }
 
 function calculateVolatility(candles, period = 20) {
   if (!candles || candles.length < period) return 0;
-  
+
   const recentPrices = candles.slice(-period).map(c => c.close);
   const mean = recentPrices.reduce((sum, price) => sum + price, 0) / period;
   const variance = recentPrices.reduce((sum, price) => sum + Math.pow(price - mean, 2), 0) / period;
   const stdDev = Math.sqrt(variance);
-  
+
   return (stdDev / mean) * 100; // Coefficient of variation
 }
 
@@ -52,6 +52,8 @@ export default function StockDetail() {
   const [timeframe, setTimeframe] = useState('1D');
   const [range, setRange] = useState('1Y');
   const [quantity, setQuantity] = useState(1);
+  const [isLimitOrder, setIsLimitOrder] = useState(false);
+  const [limitPrice, setLimitPrice] = useState(0);
   const [orderStatus, setOrderStatus] = useState({ type: '', message: '' });
   const [sentiment, setSentiment] = useState(null);
   const [loadingSentiment, setLoadingSentiment] = useState(false);
@@ -82,6 +84,9 @@ export default function StockDetail() {
         setStock(stockRes.data);
         setCandles(candleRes.data.data);
         setLivePrice(stockRes.data);
+        if (!isLimitOrder && stockRes.data?.price) {
+          setLimitPrice(stockRes.data.price);
+        }
       } catch (err) {
         console.error('Error fetching stock details', err);
       }
@@ -101,6 +106,7 @@ export default function StockDetail() {
     const myUpdate = updates.find(u => u.symbol === symbol);
     if (myUpdate) {
       setLivePrice(myUpdate);
+      if (!isLimitOrder) setLimitPrice(myUpdate.price);
     }
   });
 
@@ -108,7 +114,6 @@ export default function StockDetail() {
     if (order.symbol === symbol) {
       console.log('🎯 Relevant order executed!', order);
       refreshUser();
-      // Optionally refetch candles/holdings status if we add that UI
     }
   });
 
@@ -116,15 +121,32 @@ export default function StockDetail() {
     setOrderStatus({ type: 'loading', message: `Processing ${type} order...` });
     try {
       const endpoint = type === 'BUY' ? '/orders/buy' : '/orders/sell';
-      const { data } = await api.post(endpoint, {
+      const payload = {
         stockSymbol: symbol,
         quantity: parseInt(quantity)
-      });
+      };
+      if (isLimitOrder) payload.limitPrice = parseFloat(limitPrice);
+
+      const { data } = await api.post(endpoint, payload);
       setOrderStatus({ type: 'success', message: data.message });
-      refreshUser(); // Update balance
+      refreshUser();
     } catch (err) {
       setOrderStatus({ type: 'error', message: err.response?.data?.error || 'Order failed' });
     }
+  };
+
+  const getPriceColor = () => {
+    if (!livePrice || !livePrice.open) return 'text-text-primary';
+    if (livePrice.price > livePrice.open) return 'text-accent-green';
+    if (livePrice.price < livePrice.open) return 'text-accent-red';
+    return 'text-text-primary';
+  };
+
+  const getBorderColor = () => {
+    if (!livePrice || !livePrice.open) return 'border-border-color';
+    if (livePrice.price > livePrice.open) return 'border-accent-green';
+    if (livePrice.price < livePrice.open) return 'border-accent-red';
+    return 'border-border-color';
   };
 
   if (!stock) return <div className="p-8 text-center text-text-secondary">Loading stock data...</div>;
@@ -138,9 +160,9 @@ export default function StockDetail() {
             <h1 className="text-2xl font-bold text-accent-green">{stock.symbol.split('.')[0]}</h1>
             <span className="text-text-secondary text-sm">{stock.name}</span>
             {stock.website && (
-              <a 
-                href={stock.website} 
-                target="_blank" 
+              <a
+                href={stock.website}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="p-1 px-2 rounded-lg bg-bg-secondary border border-border-color text-text-secondary hover:text-accent-green hover:border-accent-green transition-all flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider group"
                 title="Visit Website"
@@ -154,16 +176,15 @@ export default function StockDetail() {
               </a>
             )}
           </div>
-          
+
           <div className="flex gap-2 bg-bg-primary/50 p-1 rounded-lg border border-border-color">
             <div className="flex gap-1 pr-2 border-r border-border-color">
               {['1D', '5D', '1M', '6M', '1Y', 'ALL'].map(r => (
                 <button
                   key={r}
                   onClick={() => setRange(r)}
-                  className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
-                    range === r ? 'bg-accent-green text-bg-primary' : 'text-text-secondary hover:text-text-primary'
-                  }`}
+                  className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${range === r ? 'bg-accent-green text-bg-primary' : 'text-text-secondary hover:text-text-primary'
+                    }`}
                 >
                   {r}
                 </button>
@@ -174,9 +195,8 @@ export default function StockDetail() {
                 <button
                   key={tf}
                   onClick={() => setTimeframe(tf)}
-                  className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${
-                    timeframe === tf ? 'bg-indigo-500 text-white' : 'text-text-secondary hover:text-text-primary'
-                  }`}
+                  className={`px-2 py-1 rounded text-[10px] font-bold transition-all ${timeframe === tf ? 'bg-indigo-500 text-white' : 'text-text-secondary hover:text-text-primary'
+                    }`}
                 >
                   {tf}
                 </button>
@@ -185,14 +205,21 @@ export default function StockDetail() {
           </div>
         </div>
 
-        <div className="card glass p-2 h-[450px]">
+        <div className="card glass p-2 h-[550px]">
+          <div className="px-4 py-2 border-b border-border-color flex justify-between items-center mb-2">
+            <span className="text-[10px] font-black uppercase tracking-widest text-text-secondary">Fluctuation Trading Hub (1M Live)</span>
+            <span className="text-[10px] text-accent-green font-bold uppercase tracking-tight flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-green animate-pulse"></span>
+              {timeframe} Resolution
+            </span>
+          </div>
           <Chart data={candles} liveUpdate={livePrice} timeframe={timeframe} range={range} />
         </div>
       </div>
 
       {/* Sidebar Column (1 span) */}
       <div className="space-y-6">
-        <div className={`card glass space-y-6 shadow-xl border-t-4 ${(!livePrice || livePrice.price >= (livePrice.prevClose || 0)) ? 'border-accent-green' : 'border-accent-red'}`}>
+        <div className={`card glass space-y-6 shadow-xl border-t-4 ${getBorderColor()}`}>
           <div className="flex justify-between items-end border-b border-border-color pb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -209,30 +236,57 @@ export default function StockDetail() {
                   </span>
                 )}
               </div>
-              <h2 className="text-3xl font-bold font-mono">₹ {livePrice?.price?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h2>
+              <h2 className={`text-3xl font-bold font-mono ${getPriceColor()}`}>₹ {livePrice?.price?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h2>
             </div>
-            <div className={`text-right ${livePrice?.price >= (livePrice?.open || 0) ? 'text-accent-green' : 'text-accent-red'}`}>
+            <div className={`text-right ${getPriceColor()}`}>
               <p className="text-sm font-bold">{livePrice?.changePct >= 0 ? '+' : ''}{livePrice?.changePct}%</p>
               <p className="text-xs">{livePrice?.change?.toFixed(2)}</p>
             </div>
           </div>
 
           <div className="space-y-4">
-            <div>
-              <label className="block text-xs text-text-secondary uppercase mb-2">Quantity</label>
-              <input
-                type="number"
-                min="1"
-                className="w-full text-xl p-3 font-bold bg-bg-primary border border-border-color rounded focus:border-accent-green outline-none"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-              />
+            <div className="flex gap-2 p-1 bg-bg-primary rounded-lg border border-border-color mb-4">
+              <button
+                onClick={() => setIsLimitOrder(false)}
+                className={`flex-1 py-1.5 text-[10px] font-bold rounded uppercase tracking-wider transition-all ${!isLimitOrder ? 'bg-accent-green text-bg-primary' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                Market
+              </button>
+              <button
+                onClick={() => setIsLimitOrder(true)}
+                className={`flex-1 py-1.5 text-[10px] font-bold rounded uppercase tracking-wider transition-all ${isLimitOrder ? 'bg-accent-green text-bg-primary' : 'text-text-secondary hover:text-text-primary'}`}
+              >
+                Limit
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-text-secondary uppercase mb-2">Quantity</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="w-full text-lg p-3 font-bold bg-bg-primary border border-border-color rounded focus:border-accent-green outline-none"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-text-secondary uppercase mb-2">Price (INR)</label>
+                <input
+                  type="number"
+                  disabled={!isLimitOrder}
+                  className={`w-full text-lg p-3 font-bold bg-bg-primary border border-border-color rounded focus:border-accent-green outline-none ${!isLimitOrder ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  value={limitPrice}
+                  onChange={(e) => setLimitPrice(e.target.value)}
+                />
+              </div>
             </div>
 
             <div className="flex justify-between text-sm text-text-secondary">
               <span>Required Margin:</span>
               <span className="font-bold text-text-primary">
-                ₹ {((livePrice?.price || 0) * (quantity || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                ₹ {((isLimitOrder ? limitPrice : (livePrice?.price || 0)) * (quantity || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </span>
             </div>
 
@@ -242,10 +296,9 @@ export default function StockDetail() {
             </div>
 
             {orderStatus.message && (
-              <div className={`p-3 rounded text-xs text-center font-medium ${
-                orderStatus.type === 'success' ? 'bg-accent-green/10 text-accent-green' : 
+              <div className={`p-3 rounded text-xs text-center font-medium ${orderStatus.type === 'success' ? 'bg-accent-green/10 text-accent-green' :
                 'bg-accent-red/10 text-accent-red'
-              }`}>
+                }`}>
                 {orderStatus.message}
               </div>
             )}
@@ -266,7 +319,7 @@ export default function StockDetail() {
               <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
               AI Financial Insights & Deep Analysis
             </h3>
-            <button 
+            <button
               onClick={() => fetchSentiment(true)}
               disabled={loadingSentiment}
               className={`text-[10px] px-4 py-1.5 rounded bg-indigo-500/20 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all font-black ${loadingSentiment ? 'animate-pulse cursor-not-allowed' : ''}`}
@@ -280,7 +333,7 @@ export default function StockDetail() {
               <div className="text-3xl">🔑</div>
               <p className="font-black text-white text-sm">Google API Key Required</p>
               <p className="text-xs text-text-secondary max-w-md mx-auto leading-relaxed">
-                {sentimentError.includes('API key') || sentimentError.includes('Gemini') 
+                {sentimentError.includes('API key') || sentimentError.includes('Gemini')
                   ? 'Your GOOGLE_API_KEY in backend/.env is invalid or over quota. Get a fresh key at aistudio.google.com → restart backend.'
                   : sentimentError
                 }
@@ -294,8 +347,8 @@ export default function StockDetail() {
           {!sentiment && !loadingSentiment && !sentimentError && (
             <div className="text-center py-12 bg-bg-primary/30 rounded-xl border border-dashed border-border-color">
               <p className="text-sm text-text-secondary mb-4 max-w-md mx-auto">Get professional multi-agent sentiment analysis powered by Gemini 1.5/2.0 and Tavily Deep Search.</p>
-              <button 
-                onClick={fetchSentiment} 
+              <button
+                onClick={fetchSentiment}
                 className="px-8 py-3 rounded-full bg-indigo-500 text-white text-sm font-black hover:scale-105 active:scale-95 transition-all shadow-xl shadow-indigo-500/30 ring-4 ring-indigo-500/10"
               >
                 GENERATE AI REPORT
@@ -307,11 +360,10 @@ export default function StockDetail() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 p-2 animate-in fade-in slide-in-from-bottom-4 duration-700">
               <div className="space-y-6">
                 <div className="flex items-center gap-6 bg-bg-primary/50 p-6 rounded-2xl border border-border-color shadow-inner">
-                  <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center font-black text-3xl shadow-lg ${
-                    (sentiment.score || 0) > 60 ? 'border-accent-green text-accent-green bg-accent-green/5 shadow-accent-green/10' : 
-                    (sentiment.score || 0) < 40 ? 'border-accent-red text-accent-red bg-accent-red/5 shadow-accent-red/10' : 
-                    'border-yellow-500 text-yellow-500 bg-yellow-500/5 shadow-yellow-500/10'
-                  }`}>
+                  <div className={`w-20 h-20 rounded-full border-4 flex items-center justify-center font-black text-3xl shadow-lg ${(sentiment.score || 0) > 60 ? 'border-accent-green text-accent-green bg-accent-green/5 shadow-accent-green/10' :
+                    (sentiment.score || 0) < 40 ? 'border-accent-red text-accent-red bg-accent-red/5 shadow-accent-red/10' :
+                      'border-yellow-500 text-yellow-500 bg-yellow-500/5 shadow-yellow-500/10'
+                    }`}>
                     {sentiment.score || '-'}
                   </div>
                   <div>
@@ -338,7 +390,7 @@ export default function StockDetail() {
                           <span>{item.score}%</span>
                         </div>
                         <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden border border-border-color/30">
-                          <div 
+                          <div
                             className={`h-full ${item.color} shadow-[0_0_10px_rgba(0,0,0,0.5)] transition-all duration-1000 ease-out`}
                             style={{ width: `${item.score}%` }}
                           ></div>
@@ -364,14 +416,14 @@ export default function StockDetail() {
                   <div className="grid grid-cols-1 gap-2">
                     {sentiment.citations?.length > 0 ? (
                       sentiment.citations.map((c, i) => (
-                        <a 
-                          key={i} 
-                          href={c.url} 
-                          target="_blank" 
-                          rel="noreferrer" 
+                        <a
+                          key={i}
+                          href={c.url}
+                          target="_blank"
+                          rel="noreferrer"
                           className="text-xs text-indigo-400 hover:text-white hover:bg-indigo-500/20 flex items-center gap-4 p-4 rounded-xl border border-transparent hover:border-indigo-500/30 transition-all group"
                         >
-                          <span className="opacity-50 font-mono text-sm w-10 h-10 flex items-center justify-center bg-indigo-500/10 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-colors">[{i+1}]</span> 
+                          <span className="opacity-50 font-mono text-sm w-10 h-10 flex items-center justify-center bg-indigo-500/10 rounded-lg group-hover:bg-indigo-500 group-hover:text-white transition-colors">[{i + 1}]</span>
                           <span className="truncate flex-1 font-bold">{c.title}</span>
                           <span className="text-[10px] bg-indigo-500/20 px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 uppercase transition-opacity font-black">Source</span>
                         </a>

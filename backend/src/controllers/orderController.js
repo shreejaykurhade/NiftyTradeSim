@@ -16,7 +16,7 @@ async function getOrders(req, res) {
 
 // POST /api/orders/buy
 async function buyStock(req, res) {
-  const { stockSymbol, quantity } = req.body;
+  const { stockSymbol, quantity, limitPrice } = req.body;
   if (!stockSymbol || !quantity || quantity <= 0)
     return res.status(400).json({ error: 'Invalid stock symbol or quantity' });
 
@@ -25,8 +25,20 @@ async function buyStock(req, res) {
     if (!cached)
       return res.status(400).json({ error: 'Price not available, market may be closed' });
 
-    const { price } = JSON.parse(cached);
-    const total = price * quantity;
+    const { price: livePrice } = JSON.parse(cached);
+    
+    // Use limitPrice if provided, otherwise use livePrice
+    const executionPrice = limitPrice || livePrice;
+    
+    // PRICE RANGE VALIDATION: Allow up to 5% deviation from live price for "Limit Orders"
+    const deviation = Math.abs(executionPrice - livePrice) / livePrice;
+    if (limitPrice && deviation > 0.05) {
+      return res.status(400).json({ 
+        error: `Limit price out of allowed range (+/- 5%). Live: ₹${livePrice.toFixed(2)}, Allowed: ₹${(livePrice * 0.95).toFixed(2)} - ₹${(livePrice * 1.05).toFixed(2)}` 
+      });
+    }
+
+    const total = executionPrice * quantity;
 
     console.log(`📡 [Trade] Attempting BUY for ${stockSymbol}...`);
     try {
@@ -43,7 +55,7 @@ async function buyStock(req, res) {
         userId: req.user.userId,
         stockSymbol,
         type: 'BUY',
-        price,
+        price: executionPrice,
         quantity,
         total,
         status: 'EXECUTED',
@@ -53,7 +65,7 @@ async function buyStock(req, res) {
 
       if (existing) {
         const newQty = existing.quantity + quantity;
-        const newAvg = (existing.avgPrice * existing.quantity + price * quantity) / newQty;
+        const newAvg = (existing.avgPrice * existing.quantity + executionPrice * quantity) / newQty;
         existing.quantity = newQty;
         existing.avgPrice = newAvg;
         await existing.save();
@@ -62,7 +74,7 @@ async function buyStock(req, res) {
           userId: req.user.userId,
           stockSymbol,
           quantity,
-          avgPrice: price,
+          avgPrice: executionPrice,
         });
       }
 
@@ -74,7 +86,7 @@ async function buyStock(req, res) {
           type: 'BUY',
           symbol: stockSymbol,
           quantity,
-          price
+          price: executionPrice
         });
       }
 
@@ -90,7 +102,7 @@ async function buyStock(req, res) {
 
 // POST /api/orders/sell
 async function sellStock(req, res) {
-  const { stockSymbol, quantity } = req.body;
+  const { stockSymbol, quantity, limitPrice } = req.body;
   if (!stockSymbol || !quantity || quantity <= 0)
     return res.status(400).json({ error: 'Invalid stock symbol or quantity' });
 
@@ -99,8 +111,18 @@ async function sellStock(req, res) {
     if (!cached)
       return res.status(400).json({ error: 'Price not available' });
 
-    const { price } = JSON.parse(cached);
-    const total = price * quantity;
+    const { price: livePrice } = JSON.parse(cached);
+    const executionPrice = limitPrice || livePrice;
+
+    // PRICE RANGE VALIDATION: Allow up to 5% deviation
+    const deviation = Math.abs(executionPrice - livePrice) / livePrice;
+    if (limitPrice && deviation > 0.05) {
+      return res.status(400).json({ 
+        error: `Limit price out of allowed range (+/- 5%). Live: ₹${livePrice.toFixed(2)}` 
+      });
+    }
+
+    const total = executionPrice * quantity;
 
     console.log(`📡 [Trade] Attempting SELL for ${stockSymbol}...`);
     try {
@@ -119,7 +141,7 @@ async function sellStock(req, res) {
         userId: req.user.userId,
         stockSymbol,
         type: 'SELL',
-        price,
+        price: executionPrice,
         quantity,
         total,
         status: 'EXECUTED',
@@ -141,7 +163,7 @@ async function sellStock(req, res) {
           type: 'SELL',
           symbol: stockSymbol,
           quantity,
-          price
+          price: executionPrice
         });
       }
 

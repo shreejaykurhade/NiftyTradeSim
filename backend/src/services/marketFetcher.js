@@ -13,6 +13,8 @@ const lastPrices = {};
 
 async function fetchAndBroadcast() {
   try {
+    // RATE LIMITING: Add a small delay if needed, though NIFTY 50 is one batch
+    // For now, ensure we don't hammer the API more than every 10s
     const quotes = await yahooFinance.quote(SYMBOLS);
     const list = Array.isArray(quotes) ? quotes : [quotes];
 
@@ -44,7 +46,7 @@ async function fetchAndBroadcast() {
         change: parseFloat((q.regularMarketChange || 0).toFixed(2)),
         changePct: parseFloat((q.regularMarketChangePercent || 0).toFixed(2)),
         volume: q.regularMarketVolume || 0,
-        open: q.regularMarketOpen || price,
+        open: q.regularMarketOpen || q.regularMarketPreviousClose || price,
         high: q.regularMarketDayHigh || price,
         low: q.regularMarketDayLow || price,
         prevClose: q.regularMarketPreviousClose || price,
@@ -56,7 +58,6 @@ async function fetchAndBroadcast() {
       lastPrices[q.symbol] = data;
 
       // UPDATE LATEST CANDLE IN DB: Ensure chart is never "stale"
-      // We update the daily candle's 'close' with the latest live price
       const todayStart = new Date(istTime);
       todayStart.setUTCHours(0, 0, 0, 0);
       
@@ -67,19 +68,17 @@ async function fetchAndBroadcast() {
           $max: { high: data.high },
           $min: { low: data.low }
         },
-        { upsert: false } // Only update if today's candle already exists
-      ).catch(() => {}); // Silent fail for candle updates
+        { upsert: false }
+      ).catch(() => {});
     }
 
     if (updates.length > 0) {
       const io = getIO();
       if (io) io.emit('market_update', updates);
       
-      // Bulk update Redis (Persistent - no expiration to survive API outages)
+      // Bulk update Redis (Persistent)
       const multi = redisClient.multi();
-      updates.forEach(u => {
-        multi.set(`stock:${u.symbol}`, JSON.stringify(u));
-      });
+      updates.forEach(u => multi.set(`stock:${u.symbol}`, JSON.stringify(u)));
       await multi.exec();
     }
   } catch (err) {
