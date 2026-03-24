@@ -75,10 +75,10 @@ async function fetchAndBroadcast() {
       const io = getIO();
       if (io) io.emit('market_update', updates);
       
-      // Bulk update Redis (v4 multi)
+      // Bulk update Redis (Persistent - no expiration to survive API outages)
       const multi = redisClient.multi();
       updates.forEach(u => {
-        multi.set(`stock:${u.symbol}`, JSON.stringify(u), { EX: 60 });
+        multi.set(`stock:${u.symbol}`, JSON.stringify(u));
       });
       await multi.exec();
     }

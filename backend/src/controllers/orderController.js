@@ -28,17 +28,18 @@ async function buyStock(req, res) {
     const { price } = JSON.parse(cached);
     const total = price * quantity;
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    console.log(`📡 [Trade] Attempting BUY for ${stockSymbol}...`);
     try {
-      const user = await User.findById(req.user.userId).session(session);
+      const user = await User.findById(req.user.userId);
+      if (!user) throw new Error("User not found");
+
       if (user.balance < total)
         throw new Error(`Insufficient balance. Need ₹${total.toFixed(2)}, have ₹${user.balance.toFixed(2)}`);
 
       user.balance -= total;
-      await user.save({ session });
+      await user.save();
 
-      const order = await Order.create([{
+      const order = await Order.create({
         userId: req.user.userId,
         stockSymbol,
         type: 'BUY',
@@ -46,28 +47,27 @@ async function buyStock(req, res) {
         quantity,
         total,
         status: 'EXECUTED',
-      }], { session });
+      });
 
-      const existing = await Holding.findOne({ userId: req.user.userId, stockSymbol }).session(session);
+      const existing = await Holding.findOne({ userId: req.user.userId, stockSymbol });
 
       if (existing) {
         const newQty = existing.quantity + quantity;
         const newAvg = (existing.avgPrice * existing.quantity + price * quantity) / newQty;
         existing.quantity = newQty;
         existing.avgPrice = newAvg;
-        await existing.save({ session });
+        await existing.save();
       } else {
-        await Holding.create([{
+        await Holding.create({
           userId: req.user.userId,
           stockSymbol,
           quantity,
           avgPrice: price,
-        }], { session });
+        });
       }
 
-      await session.commitTransaction();
+      console.log(`✅ [Trade] BUY executed successfully for ${stockSymbol}`);
       
-      // Notify client via WebSocket for instant UI refresh
       const io = require('../websockets/socket').getIO();
       if (io) {
         io.to(`user:${req.user.userId}`).emit('order_executed', {
@@ -78,12 +78,10 @@ async function buyStock(req, res) {
         });
       }
 
-      res.status(201).json({ message: 'Buy order executed', order: order[0] });
+      res.status(201).json({ message: 'Buy order executed', order });
     } catch (err) {
-      await session.abortTransaction();
+      console.error(`❌ [Trade] BUY failed:`, err.message);
       throw err;
-    } finally {
-      session.endSession();
     }
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -104,19 +102,20 @@ async function sellStock(req, res) {
     const { price } = JSON.parse(cached);
     const total = price * quantity;
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+    console.log(`📡 [Trade] Attempting SELL for ${stockSymbol}...`);
     try {
-      const holding = await Holding.findOne({ userId: req.user.userId, stockSymbol }).session(session);
+      const holding = await Holding.findOne({ userId: req.user.userId, stockSymbol });
 
       if (!holding || holding.quantity < quantity)
         throw new Error(`Not enough shares to sell. You hold ${holding ? holding.quantity : 0}`);
 
-      const user = await User.findById(req.user.userId).session(session);
-      user.balance += total;
-      await user.save({ session });
+      const user = await User.findById(req.user.userId);
+      if (!user) throw new Error("User not found");
 
-      const order = await Order.create([{
+      user.balance += total;
+      await user.save();
+
+      const order = await Order.create({
         userId: req.user.userId,
         stockSymbol,
         type: 'SELL',
@@ -124,19 +123,18 @@ async function sellStock(req, res) {
         quantity,
         total,
         status: 'EXECUTED',
-      }], { session });
+      });
 
       const remaining = holding.quantity - quantity;
       if (remaining === 0) {
-        await Holding.deleteOne({ _id: holding._id }).session(session);
+        await Holding.deleteOne({ _id: holding._id });
       } else {
         holding.quantity = remaining;
-        await holding.save({ session });
+        await holding.save();
       }
 
-      await session.commitTransaction();
+      console.log(`✅ [Trade] SELL executed successfully for ${stockSymbol}`);
 
-      // Notify client via WebSocket for instant UI refresh
       const io = require('../websockets/socket').getIO();
       if (io) {
         io.to(`user:${req.user.userId}`).emit('order_executed', {
@@ -147,12 +145,10 @@ async function sellStock(req, res) {
         });
       }
 
-      res.status(201).json({ message: 'Sell order executed', order: order[0] });
+      res.status(201).json({ message: 'Sell order executed', order });
     } catch (err) {
-      await session.abortTransaction();
+      console.error(`❌ [Trade] SELL failed:`, err.message);
       throw err;
-    } finally {
-      session.endSession();
     }
   } catch (err) {
     res.status(400).json({ error: err.message });

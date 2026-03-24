@@ -192,7 +192,7 @@ export default function StockDetail() {
 
       {/* Sidebar Column (1 span) */}
       <div className="space-y-6">
-        <div className="card glass space-y-6 shadow-xl border-t-4 border-accent-green">
+        <div className={`card glass space-y-6 shadow-xl border-t-4 ${(!livePrice || livePrice.price >= (livePrice.prevClose || 0)) ? 'border-accent-green' : 'border-accent-red'}`}>
           <div className="flex justify-between items-end border-b border-border-color pb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
@@ -211,7 +211,7 @@ export default function StockDetail() {
               </div>
               <h2 className="text-3xl font-bold font-mono">₹ {livePrice?.price?.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</h2>
             </div>
-            <div className={`text-right ${livePrice?.changePct >= 0 ? 'text-accent-green' : 'text-accent-red'}`}>
+            <div className={`text-right ${livePrice?.price >= (livePrice?.open || 0) ? 'text-accent-green' : 'text-accent-red'}`}>
               <p className="text-sm font-bold">{livePrice?.changePct >= 0 ? '+' : ''}{livePrice?.changePct}%</p>
               <p className="text-xs">{livePrice?.change?.toFixed(2)}</p>
             </div>

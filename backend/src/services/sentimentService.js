@@ -4,13 +4,7 @@ const { GoogleGenerativeAI } = require("@google/generative-ai");
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 /**
- * Sequential 6-Agent Agentic Sentiment Pipeline — REBUILT FROM SCRATCH
- * 
- * DESIGN PHILOSOPHY:
- * 1. ZERO EXTRA NETWORK CALLS: Removed Google Embeddings API completely (fixed 404s).
- * 2. 15s BREATHE PAUSE: Strictly wait 15 seconds after every agent to reset rate limits.
- * 3. EXPLICIT SEQUENCES: Agent 5 waits for 4. Agent 6 waits for 5.
- * 4. LOCAL RAG: Quick keyword selection filters data down to fit LLM window instantly.
+ * Sequential 6-Agent Agentic Sentiment Pipeline — HIGH RELIABILITY
  */
 async function getStockSentiment(symbol, stockName, sector) {
   console.log(`\n🤖 [Step 0] Initializing Robust AI Pipeline for ${symbol}...`);
@@ -21,18 +15,32 @@ async function getStockSentiment(symbol, stockName, sector) {
   const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
 
   // ─── TAVILY SEARCH HELPER ──────────────────────────────────────────────────
-  async function searchTavily(query) {
+  async function searchTavily(query, isGlobal = false) {
+    const domesticDomains = ["moneycontrol.com", "economictimes.indiatimes.com", "screener.in", "groww.in", "zerodha.com", "livemint.com", "business-standard.com"];
+    const globalDomains = ["reuters.com", "bloomberg.com", "investing.com", "marketwatch.com", "finance.yahoo.com", "cnbc.com", "wsj.com"];
+    
     try {
       const res = await axios.post('https://api.tavily.com/search', {
         api_key: process.env.TAVILY_API_KEY,
         query,
-        max_results: 5,
-        search_depth: "advanced"
-      }, { timeout: 20000 });
+        max_results: 6,
+        search_depth: "advanced",
+        include_domains: isGlobal ? globalDomains : domesticDomains
+      }, { timeout: 25000 });
       return res.data.results || [];
     } catch (e) {
-      console.warn(`   ⚠️ Tavily search failed: ${e.message}`);
-      return [];
+      console.warn(`   ⚠️ Tavily search failed (${query.substring(0, 30)}...): ${e.message}`);
+      try {
+        const fallbackRes = await axios.post('https://api.tavily.com/search', {
+          api_key: process.env.TAVILY_API_KEY,
+          query,
+          max_results: 5,
+          search_depth: "basic"
+        }, { timeout: 15000 });
+        return fallbackRes.data.results || [];
+      } catch (inner) {
+        return [];
+      }
     }
   }
 
@@ -54,7 +62,7 @@ async function getStockSentiment(symbol, stockName, sector) {
           const res = await model.generateContent(prompt);
           
           console.log(`   ✅ [${agentLabel}] Success! Pausing 15s for rate limit safety...`);
-          await sleep(15000); // 15s deliberate pause
+          await sleep(15000); 
           return res.response.text();
         } catch (e) {
           const errMsg = e.message || String(e);
@@ -67,29 +75,29 @@ async function getStockSentiment(symbol, stockName, sector) {
             retries--;
           } else {
             console.log(`   🔄 Falling back to next model...`);
-            await sleep(2000); // Small pause before switching models
+            await sleep(2000); 
             break; 
           }
         }
       }
     }
-    throw new Error(`[${agentLabel}] All Gemini models failed. The pipeline was stopped for safety.`);
+    throw new Error(`[${agentLabel}] All Gemini models failed. Pipeline stopped.`);
   }
 
   // ─── AGENTS 1, 2, 3: DATA GATHERING ───────────────────────────────────────
-  console.log('🕵️  [Agent 1] Gathering Domestic News...');
-  const dom = await searchTavily(`${stockName} ${symbol} NSE India stock news today`);
-  console.log(`   ✅ Agent 1 complete. Pausing 15s for stability...`);
+  console.log('🕵️  [Agent 1] Gathering Domestic News (Moneycontrol/Screener)...');
+  const dom = await searchTavily(`${stockName} ${symbol} NSE India stock news today`, false);
+  console.log(`   ✅ Agent 1 complete. Pausing 15s...`);
   await sleep(15000);
 
-  console.log('🕵️  [Agent 2] Gathering Sectoral Insights...');
-  const sec = await searchTavily(`${sector} sector overview India 2025 ${stockName}`);
-  console.log(`   ✅ Agent 2 complete. Pausing 15s for stability...`);
+  console.log('🕵️  [Agent 2] Gathering Sectoral Insights (Indian Market)...');
+  const sec = await searchTavily(`${sector} sector overview India 2025 performance`, false);
+  console.log(`   ✅ Agent 2 complete. Pausing 15s...`);
   await sleep(15000);
 
-  console.log('🕵️  [Agent 3] Gathering Global Macro Data...');
-  const glob = await searchTavily(`Global ${sector} trends impact on ${symbol}`);
-  console.log(`   ✅ Agent 3 complete. Pausing 15s for stability...`);
+  console.log('🕵️  [Agent 3] Gathering Global Macro Data (Reuters/Bloomberg)...');
+  const glob = await searchTavily(`Global ${sector} market trends impact on ${symbol} stock`, true);
+  console.log(`   ✅ Agent 3 complete. Pausing 15s...`);
   await sleep(15000);
 
   const allCitations = [...dom, ...sec, ...glob]
@@ -106,14 +114,12 @@ async function getStockSentiment(symbol, stockName, sector) {
   function getContext(query, limit = 8) {
      if (rawChunks.length === 0) return "No data available.";
      const keywords = query.toLowerCase().split(' ').filter(w => w.length > 3);
-     
      const scored = rawChunks.map(chunk => {
         let score = 0;
         const text = chunk.toLowerCase();
         keywords.forEach(k => { if (text.includes(k)) score++; });
         return { text: chunk, score };
      });
-
      scored.sort((a,b) => b.score - a.score);
      return scored.slice(0, limit).map(s => s.text).join("\n\n---\n");
   }
@@ -128,16 +134,14 @@ async function getStockSentiment(symbol, stockName, sector) {
 Provide a COMPREHENSIVE DEEP-DIVE report for ${stockName} (${symbol}). 
 
 STRICT FORMATTING RULES:
-- Use ONLY Plain Text. 
-- NO markdown symbols (NO #, NO *, NO **).
+- Use ONLY Plain Text. NO markdown symbols (NO #, NO *, NO **).
 - Section Headers must be ALL-CAPS (e.g., FUNDAMENTAL TRENDS).
-- Use simple dashes '-' for bullets.
 - Length: Be extremely detailed (aim for 800+ words).
 
 CONTENT SECTIONS:
-1. FUNDAMENTAL TRENDS: Describe recovery/fluctuations, revenue diversification, and balance sheet health.
-2. SECTOR COMPARISON: Relative position in the Indian market vs peers and future outlook.
-3. STRATEGIC OUTLOOK: Deep-dive into new energy, vertical integration, and 5-year growth drivers.
+1. FUNDAMENTAL TRENDS: Describe recovery/fluctuations, revenue diversification.
+2. SECTOR COMPARISON: Relative position in the Indian market vs peers.
+3. STRATEGIC OUTLOOK: Deep-dive into new energy, 5-year growth drivers.
 
 DATA SOURCE:
 DOMESTIC: ${domCtx}
@@ -149,46 +153,31 @@ GLOBAL: ${globCtx}`;
   // ─── AGENT 5: AUDITOR ─────────────────────────────────────────────────────
   console.log('🛡️  [Agent 5] Financial Auditor Starting...');
   const totalContext = `${domCtx}\n${secCtx}\n${globCtx}`;
-  const auditorPrompt = `Verify the following 800-word analyst report for ${stockName} against the research data.
-Your task is to audit for accuracy but KEEP the full length and detail of the report. 
-Do not summarize it; just fix inaccuracies. Maintain the ALL-CAPS header format.
-
-RESEARCH DATA:
-${totalContext}
+  const auditorPrompt = `Verify the following 800-word analyst report for ${stockName} against data.
+KEEP the full length and detail. Fix inaccuracies only. Maintain ALL-CAPS headers.
 
 ANALYST REPORT:
 ${analystReport}
 
-Output: The full, audited, detailed plain-text report only.`;
+DATA:
+${totalContext}`;
 
   const auditedReport = await callGemini(auditorPrompt, 'Agent 5 - Auditor');
 
   // ─── AGENT 6: GRADER ──────────────────────────────────────────────────────
   console.log('⚖️  [Agent 6] Portfolio Grader Starting...');
-  const graderPrompt = `Based on the audited report and research, provide a final score and summary.
-
-Output ONLY valid JSON.
-COMPULSORY: Include a "citations" array with 3-5 real sources from the context (title and url).
-
-LOGIC RULES:
-- score: 0-100 (0=Extreme Bearish, 100=Extreme Bullish).
-- recommendation: Strong Buy (85+), Buy (65-84), Hold (40-64), Sell (20-39), Strong Sell (0-19).
-- buyScore, sellScore, holdScore: Probabilities (0-100) that must sum to exactly 100.
-
-RESEARCH CONTEXT:
-${totalContext.substring(0, 3000)}
+  const graderPrompt = `Based on audited report, provide final score and summary. JSON ONLY.
+Include "citations" array (3-5 items).
 
 AUDITED REPORT:
-${auditedReport.substring(0, 1000)} ... (Full report appended below)
+${auditedReport.substring(0, 1000)} ...
 
 JSON STRUCTURE:
 {
   "score": number,
-  "recommendation": "String",
-  "buyScore": number,
-  "holdScore": number,
-  "sellScore": number,
-  "summary": "2-sentence professional executive summary",
+  "recommendation": "Strong Buy/Buy/Hold/Sell/Strong Sell",
+  "buyScore": number, "holdScore": number, "sellScore": number,
+  "summary": "2-sentence executive summary",
   "citations": [{"title": "String", "url": "String"}]
 }`;
 
@@ -196,7 +185,6 @@ JSON STRUCTURE:
   const jsonStr = rawJson.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
   const result = JSON.parse(jsonStr);
 
-  // Robust citation fallback using Tavily results if the LLM fails to provide them
   if (!result.citations || result.citations.length < 3) {
     result.citations = allCitations.slice(0, 5);
   }
@@ -206,7 +194,7 @@ JSON STRUCTURE:
   return {
     symbol,
     ...result,
-    explanation: auditedReport, // THE DEEP-DIVE REPORT GOES HERE
+    explanation: auditedReport,
     timestamp: new Date().toISOString()
   };
 }
