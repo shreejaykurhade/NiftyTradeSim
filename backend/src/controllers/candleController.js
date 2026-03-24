@@ -18,7 +18,8 @@ async function getCandles(req, res) {
     // HIGH RESOLUTION 1D VIEW: Fetch directly from Yahoo (1-minute intervals)
     if (timeframe === '1D') {
       try {
-        const chart = await yahooFinance.chart(symbol, { interval: '1m', period1: '2d' });
+        const period1 = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48h history
+        const chart = await yahooFinance.chart(symbol, { interval: '1m', period1 });
         const quotes = chart.quotes.filter(q => q.open && q.close);
         
         const formatted = quotes.map(q => ({

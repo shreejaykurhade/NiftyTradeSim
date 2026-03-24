@@ -244,6 +244,21 @@ export default function StockDetail() {
             </div>
           </div>
 
+          <div className="grid grid-cols-3 gap-2 py-2 border-b border-border-color/50">
+            <div className="text-center">
+              <p className="text-[8px] text-text-secondary uppercase mb-0.5">Open</p>
+              <p className="text-[10px] font-bold text-text-primary">₹ {livePrice?.open?.toFixed(2)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[8px] text-text-secondary uppercase mb-0.5">High</p>
+              <p className="text-[10px] font-bold text-accent-green">₹ {livePrice?.high?.toFixed(2)}</p>
+            </div>
+            <div className="text-center">
+              <p className="text-[8px] text-text-secondary uppercase mb-0.5">Low</p>
+              <p className="text-[10px] font-bold text-accent-red">₹ {livePrice?.low?.toFixed(2)}</p>
+            </div>
+          </div>
+
           <div className="space-y-4">
             <div className="flex gap-2 p-1 bg-bg-primary rounded-lg border border-border-color mb-4">
               <button
@@ -280,6 +295,12 @@ export default function StockDetail() {
                   value={limitPrice}
                   onChange={(e) => setLimitPrice(e.target.value)}
                 />
+                {isLimitOrder && livePrice?.price && (
+                  <div className="mt-1.5 flex justify-between text-[8px] font-black uppercase tracking-widest text-text-secondary/60">
+                    <span>Min: ₹{(livePrice.price * 0.95).toFixed(2)}</span>
+                    <span>Max: ₹{(livePrice.price * 1.05).toFixed(2)}</span>
+                  </div>
+                )}
               </div>
             </div>
 
