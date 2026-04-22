@@ -6,6 +6,7 @@ const morgan = require('morgan');
 const http = require('http');
 const { initSocket } = require('./src/websockets/socket');
 const { startMarketFetcher } = require('./src/services/marketFetcher');
+const { autoFetchMissingData } = require('./src/services/autoFetcher');
 const { connectRedis } = require('./src/config/redis');
 const { connectDB } = require('./src/config/db');
 
@@ -36,6 +37,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/candles', candleRoutes);
 app.use('/api/sentiment', sentimentRoutes);
+app.use('/api/agents', require('./src/routes/agents'));
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
@@ -60,6 +62,9 @@ async function bootstrap() {
     // Init WebSocket on the same HTTP server
     initSocket(httpServer);
     console.log('✅ WebSocket server initialized');
+
+    // Auto fetch missing historical data
+    await autoFetchMissingData();
 
     // Start live market data fetcher (polls every 2s during market hours)
     startMarketFetcher();

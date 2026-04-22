@@ -58,6 +58,11 @@ export default function StockDetail() {
   const [sentiment, setSentiment] = useState(null);
   const [loadingSentiment, setLoadingSentiment] = useState(false);
   const [sentimentError, setSentimentError] = useState(null);
+  
+  const [agentSimulation, setAgentSimulation] = useState(null);
+  const [loadingSimulation, setLoadingSimulation] = useState(false);
+  const [simulationError, setSimulationError] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
 
   const fetchSentiment = async (isRefresh = false) => {
     setLoadingSentiment(true);
@@ -71,6 +76,66 @@ export default function StockDetail() {
       setSentimentError(err.response?.data?.error || err.message || 'Failed to get AI insights');
     } finally {
       setLoadingSentiment(false);
+    }
+  };
+
+  const fetchSimulation = async () => {
+    setLoadingSimulation(true);
+    setSimulationError(null);
+    setAgentSimulation({ logs: [] }); // Reset state with empty logs for streaming
+    
+    try {
+      const response = await fetch(`http://localhost:5000/api/agents/simulation/${symbol}`, {
+        method: 'GET'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        
+        buffer += decoder.decode(value, { stream: true });
+        
+        // Parse SSE formatted chunks "data: {...}\n\n"
+        let parts = buffer.split('\n\n');
+        buffer = parts.pop(); // Keep the last incomplete chunk in the buffer
+        
+        for (const part of parts) {
+          if (part.startsWith('data: ')) {
+            const jsonStr = part.slice(6);
+            try {
+              const parsed = JSON.parse(jsonStr);
+              
+              if (parsed.type === 'log') {
+                setAgentSimulation(prev => ({
+                  ...prev,
+                  logs: [...(prev?.logs || []), parsed.log]
+                }));
+              } else if (parsed.type === 'result') {
+                setAgentSimulation(prev => ({
+                  ...prev,
+                  ...parsed.data,
+                  logs: prev?.logs || [] // preserve accumulated logs
+                }));
+                setLoadingSimulation(false); // Done
+              }
+            } catch (e) {
+              console.error("Error parsing SSE chunk:", e, jsonStr);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Simulation fetch failed', err);
+      setSimulationError(err.message || 'Failed to run Agent Simulation');
+      setLoadingSimulation(false);
     }
   };
 
@@ -152,9 +217,30 @@ export default function StockDetail() {
   if (!stock) return <div className="p-8 text-center text-text-secondary">Loading stock data...</div>;
 
   return (
-    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 py-6 font-sans">
-      {/* Chart Column (2 spans) */}
-      <div className="xl:col-span-2 space-y-4">
+    <div className="font-sans">
+      <div className="flex gap-4 border-b border-border-color mb-6 mt-2">
+        <button
+          onClick={() => setActiveTab('overview')}
+          className={`pb-2 px-1 text-sm font-bold tracking-wider uppercase transition-all ${
+            activeTab === 'overview' ? 'text-accent-green border-b-2 border-accent-green' : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          Market Overview
+        </button>
+        <button
+          onClick={() => setActiveTab('agents')}
+          className={`pb-2 px-1 text-sm font-bold tracking-wider uppercase transition-all flex items-center gap-2 ${
+            activeTab === 'agents' ? 'text-teal-400 border-b-2 border-teal-400' : 'text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          RL Agent Predictions <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-pulse"></span>
+        </button>
+      </div>
+
+      {activeTab === 'overview' && (
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 pb-6">
+          {/* Chart Column (2 spans) */}
+          <div className="xl:col-span-2 space-y-4">
         <div className="card glass flex justify-between items-center p-4">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-accent-green">{stock.symbol.split('.')[0]}</h1>
@@ -480,6 +566,166 @@ export default function StockDetail() {
           )}
         </div>
       </div>
+      </div>
+      )}
+
+      {activeTab === 'agents' && (
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 pb-6">
+      {/* Quantitative Agent Simulation Section */}
+      <div className="xl:col-span-3">
+        <div className="card glass space-y-4 border-t-4 border-teal-500 shadow-xl overflow-hidden">
+          <div className="flex justify-between items-center bg-teal-500/5 -m-4 mb-4 p-4 border-b border-teal-500/10">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-teal-400 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>
+              Algorithmic Consensus & Quantitative Agents
+            </h3>
+            <button
+              onClick={fetchSimulation}
+              disabled={loadingSimulation}
+              className={`text-[10px] px-4 py-1.5 rounded bg-teal-500/20 text-teal-400 hover:bg-teal-500 hover:text-white transition-all font-black ${loadingSimulation ? 'animate-pulse cursor-not-allowed' : ''}`}
+            >
+              {loadingSimulation ? 'RUNNING 5D SIMULATION...' : 'RUN AGENT SIMULATION'}
+            </button>
+          </div>
+
+          {simulationError && (
+            <div className="p-6 rounded-2xl bg-bg-primary/50 border border-accent-red/20 text-center space-y-3">
+              <p className="font-black text-white text-sm">Simulation Error</p>
+              <p className="text-xs text-text-secondary">{simulationError}</p>
+            </div>
+          )}
+
+          {!agentSimulation && !loadingSimulation && !simulationError && (
+            <div className="text-center py-12 bg-bg-primary/30 rounded-xl border border-dashed border-border-color">
+              <p className="text-sm text-text-secondary mb-4 max-w-md mx-auto">Run the multi-agent 5D state evaluation backed by Monte Carlo RL and FAISS Vector Search.</p>
+              <button
+                onClick={fetchSimulation}
+                className="px-8 py-3 rounded-full bg-teal-500 text-white text-sm font-black hover:scale-105 active:scale-95 transition-all shadow-xl shadow-teal-500/30"
+              >
+                START AGENT NETWORK
+              </button>
+            </div>
+          )}
+
+          {agentSimulation && (
+            <div className="space-y-6 p-2">
+              {agentSimulation.action ? (
+                <div className="flex items-center gap-6 bg-bg-primary/50 p-6 rounded-2xl border border-border-color animate-in fade-in zoom-in">
+                  <div className={`w-24 h-24 rounded-full border-4 flex items-center justify-center font-black text-3xl shadow-lg ${
+                    agentSimulation.action === 'Buy' ? 'border-accent-green text-accent-green' :
+                    agentSimulation.action === 'Sell' ? 'border-accent-red text-accent-red' :
+                    'border-yellow-500 text-yellow-500'
+                  }`}>
+                    {agentSimulation.consensus_score}%
+                  </div>
+                  <div>
+                    <h4 className={`text-3xl font-black uppercase tracking-tight ${
+                      agentSimulation.action === 'Buy' ? 'text-accent-green' :
+                      agentSimulation.action === 'Sell' ? 'text-accent-red' : 'text-yellow-500'
+                    }`}>
+                      {agentSimulation.action}
+                    </h4>
+                    <p className="text-xs text-text-secondary font-mono tracking-tighter uppercase mt-1">
+                      ALGORITHMIC CONSENSUS (MONTE CARLO RL)
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center gap-4 bg-bg-primary/50 p-6 rounded-2xl border border-teal-500/30 animate-pulse">
+                  <div className="w-12 h-12 rounded-full border-4 border-t-teal-500 border-r-teal-500 border-b-transparent border-l-transparent animate-spin"></div>
+                  <div>
+                    <h4 className="text-xl font-black uppercase tracking-tight text-teal-400">
+                      Processing Live Pipeline...
+                    </h4>
+                    <p className="text-xs text-text-secondary font-mono tracking-tighter uppercase mt-1">
+                      Extracting & Analyzing Market Data
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-[#0D1117] p-6 rounded-xl border border-[#30363D] overflow-hidden">
+                <div className="flex items-center gap-2 border-b border-[#30363D] pb-3 mb-4">
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full bg-accent-red"></div>
+                    <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
+                    <div className="w-3 h-3 rounded-full bg-accent-green"></div>
+                  </div>
+                  <span className="text-xs text-[#8B949E] font-mono tracking-widest ml-2">agent_network.log {loadingSimulation && <span className="animate-pulse">...</span>}</span>
+                </div>
+                
+                <div className="space-y-3 font-mono text-xs overflow-y-auto max-h-[400px] scrollbar-thin scrollbar-thumb-[#30363D] flex flex-col-reverse">
+                  <div className="flex flex-col gap-3">
+                  {agentSimulation.logs?.map((log, idx) => (
+                    <div key={idx} className="flex gap-3 animate-in slide-in-from-left-2 fade-in" style={{ animationFillMode: 'both' }}>
+                      <span className="text-[#8B949E] w-32 shrink-0">[{log.agent}]</span>
+                      <span className={`${
+                        log.message.includes('Buy') || log.message.includes('positive') || log.message.includes('bullish') ? 'text-accent-green' :
+                        log.message.includes('Sell') || log.message.includes('negative') || log.message.includes('bearish') || log.message.includes('Error') ? 'text-accent-red' :
+                        log.message.includes('Vector weight') ? 'text-[#E5C07B]' : 'text-[#A9B2C3]'
+                      }`}>
+                        {log.message}
+                      </span>
+                    </div>
+                  ))}
+                  </div>
+                </div>
+              </div>
+
+              {agentSimulation.scenarios && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+                  {agentSimulation.scenarios.map((scen, idx) => (
+                    <div key={idx} className="bg-bg-primary/50 p-4 rounded-xl border border-border-color hover:border-teal-500/30 transition-all shadow-inner">
+                      <div className="flex justify-between items-start mb-2">
+                        <h5 className="text-xs font-bold uppercase text-text-primary w-2/3">{scen.name}</h5>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded ${
+                          scen.probability > 60 ? 'bg-accent-green/20 text-accent-green' :
+                          scen.probability < 40 ? 'bg-accent-red/20 text-accent-red' : 'bg-yellow-500/20 text-yellow-500'
+                        }`}>{scen.probability.toFixed(0)}% PROB</span>
+                      </div>
+                      <p className="text-[10px] text-text-secondary leading-relaxed">{scen.catalyst}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="bg-indigo-500/5 p-4 rounded-xl border border-indigo-500/20 text-xs text-text-secondary mt-4 flex gap-4 items-start">
+                <span className="text-2xl">🧠</span>
+                <div>
+                  <h5 className="text-indigo-400 font-bold uppercase tracking-widest mb-1">Why Reinforcement Learning?</h5>
+                  <p>Traditional algorithms use static rules (e.g., "Buy if RSI &lt; 30"). This system uses <strong>Monte Carlo RL with FAISS Vector Search</strong> to dynamically match the current 10D market state against decades of historical outcomes. The agent learns the <em>policy</em> of what actions yielded the highest rewards in mathematically identical scenarios, adapting to market regimes automatically.</p>
+                </div>
+              </div>
+
+              {agentSimulation.reasoning && (
+                <div className="bg-teal-500/5 p-6 rounded-xl border border-teal-500/20 text-sm leading-relaxed mt-4">
+                  <h4 className="text-teal-400 font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Vector State Reasoning Analysis
+                  </h4>
+                  <p className="text-text-primary italic">{agentSimulation.reasoning}</p>
+                  {agentSimulation.vector && (
+                    <div className="mt-4 pt-4 border-t border-teal-500/10">
+                      <p className="text-xs text-text-secondary uppercase tracking-widest mb-2">Raw 5D Vector Tensor</p>
+                      <div className="flex gap-2 flex-wrap">
+                        {agentSimulation.vector.map((val, idx) => (
+                          <div key={idx} className="px-3 py-1 bg-bg-primary rounded font-mono text-xs border border-border-color shadow-inner">
+                            {['Price', 'Volume', 'Volatility', 'Momentum', 'Macro'][idx]}: {val > 0 ? '+' : ''}{val.toFixed(2)}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      </div>
+      )}
     </div>
   );
 }
