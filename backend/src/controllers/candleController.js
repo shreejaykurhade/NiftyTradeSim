@@ -1,5 +1,3 @@
-const YahooFinance = require('yahoo-finance2').default;
-const yahooFinance = new YahooFinance();
 const StockCandle = require('../models/StockCandle');
 
 const VALID_TIMEFRAMES = ['1D', '1W', '1M'];
@@ -15,30 +13,8 @@ async function getCandles(req, res) {
       return res.status(400).json({ error: `Invalid timeframe. Use: ${VALID_TIMEFRAMES.join(', ')}` });
     }
 
-    // HIGH RESOLUTION 1D VIEW: Fetch directly from Yahoo (1-minute intervals)
-    if (timeframe === '1D') {
-      try {
-        const period1 = new Date(Date.now() - 48 * 60 * 60 * 1000); // 48h history
-        const chart = await yahooFinance.chart(symbol, { interval: '1m', period1 });
-        const quotes = chart.quotes.filter(q => q.open && q.close);
-        
-        const formatted = quotes.map(q => ({
-          time: Math.floor(new Date(q.date).getTime() / 1000),
-          open: q.open,
-          high: q.high,
-          low: q.low,
-          close: q.close,
-          volume: q.volume
-        }));
-
-        return res.json({ symbol, timeframe: '1D', count: formatted.length, data: formatted });
-      } catch (err) {
-        console.error('Yahoo Chart fetch failed:', err.message);
-        // Fallback to DB below if YF fails
-      }
-    }
-
-    // HISTORICAL / AGGREGATED VIEWS: Fetch from DB (Daily candles)
+    // Historical views are built from stored daily candles so frontend range
+    // controls (1M, 6M, 1Y, ALL) always have enough data to work with.
     const baseTimeframe = '1D';
     const rawCandles = await StockCandle.find({ symbol, timeframe: baseTimeframe })
       .sort({ timestamp: -1 })
@@ -49,15 +25,30 @@ async function getCandles(req, res) {
       return res.json({ symbol, timeframe, count: 0, data: [] });
     }
 
-    let resultData = rawCandles.map((c) => ({
-      time: Math.floor(new Date(c.timestamp).getTime() / 1000),
-      open: c.open,
-      high: c.high,
-      low: c.low,
-      close: c.close,
-      volume: Number(c.volume),
-      _date: new Date(c.timestamp), // for aggregation
-    })).reverse();
+    let resultData = rawCandles
+      .map((c) => {
+        const open = Number(c.open);
+        const high = Number(c.high);
+        const low = Number(c.low);
+        const close = Number(c.close);
+        const timestamp = new Date(c.timestamp);
+
+        if (![open, high, low, close].every(Number.isFinite) || Number.isNaN(timestamp.getTime())) {
+          return null;
+        }
+
+        return {
+          time: Math.floor(timestamp.getTime() / 1000),
+          open,
+          high: Math.max(open, high, low, close),
+          low: Math.min(open, high, low, close),
+          close,
+          volume: Number(c.volume || 0),
+          _date: timestamp,
+        };
+      })
+      .filter(Boolean)
+      .reverse();
 
     // Perform aggregation if timeframe is not 1D
     if (timeframe === '1W' || timeframe === '1M') {

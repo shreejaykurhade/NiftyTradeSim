@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -8,8 +8,9 @@ export default function Login() {
   const [error, setError] = useState('');
   const { login } = useAuth();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
     try {
       await login(email, password);
     } catch (err) {
@@ -18,49 +19,45 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-primary px-4">
-      <div className="card w-full max-w-md space-y-8 glass p-8 rounded-xl border border-border-color shadow-2xl">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-accent-green mb-2">Nifty50Sim</h2>
-          <p className="text-text-secondary">Premium NIFTY 50 Paper Trading</p>
+    <AuthLayout title="Welcome back" subtitle="Sign in to continue to your NIFTY 50 trading workspace.">
+      <form className="space-y-5" onSubmit={handleSubmit}>
+        {error && <div className="rounded-md border border-accent-red/30 bg-accent-red/10 p-3 text-sm text-accent-red">{error}</div>}
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-text-secondary">Email address</label>
+          <input type="email" required placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} />
         </div>
-        
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          {error && <div className="text-accent-red bg-accent-red/10 p-3 rounded text-sm text-center">{error}</div>}
-          
-          <div>
-            <label className="block text-sm font-medium mb-2">Email Address</label>
-            <input
-              type="email"
-              required
-              className="w-full p-3 rounded"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+
+        <div>
+          <label className="mb-2 block text-sm font-semibold text-text-secondary">Password</label>
+          <input type="password" required placeholder="Enter your password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        </div>
+
+        <button type="submit" className="btn-primary w-full">Sign in</button>
+      </form>
+
+      <p className="mt-6 text-center text-sm text-text-secondary">
+        New to Nifty50Sim? <Link to="/register" className="font-semibold text-accent-green hover:text-text-primary">Create an account</Link>
+      </p>
+    </AuthLayout>
+  );
+}
+
+function AuthLayout({ title, subtitle, children }) {
+  return (
+    <div className="grid min-h-screen place-items-center px-4 py-10">
+      <div className="w-full max-w-md">
+        <Link to="/landing" className="mb-6 flex items-center justify-center gap-3">
+          <span className="grid h-10 w-10 place-items-center rounded-md bg-accent-green text-sm font-black text-bg-primary">N50</span>
+          <span className="text-lg font-black">Nifty50Sim</span>
+        </Link>
+        <section className="surface p-8">
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">{subtitle}</p>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-2">Password</label>
-            <input
-              type="password"
-              required
-              className="w-full p-3 rounded"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-
-          <button type="submit" className="btn-login w-full py-3 rounded-lg text-lg font-bold transition-all hover:brightness-110">
-            Sign In
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-text-secondary">
-          Don't have an account?{' '}
-          <Link to="/register" className="text-accent-green hover:underline">Create one</Link>
-        </p>
+          {children}
+        </section>
       </div>
     </div>
   );

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Register() {
   const [name, setName] = useState('');
@@ -9,8 +9,9 @@ export default function Register() {
   const [error, setError] = useState('');
   const { register } = useAuth();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError('');
     try {
       await register(name, email, password);
     } catch (err) {
@@ -19,61 +20,45 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-primary px-4">
-      <div className="card w-full max-w-md space-y-8 glass p-8 rounded-xl border border-border-color shadow-2xl">
-        <div className="text-center">
-          <h2 className="text-3xl font-bold text-accent-green mb-2">Nifty50Sim</h2>
-          <p className="text-text-secondary">Join the high-performance trading platform</p>
-        </div>
-        
-        <form className="space-y-6" onSubmit={handleSubmit}>
-          {error && <div className="text-accent-red bg-accent-red/10 p-3 rounded text-sm text-center">{error}</div>}
-          
-          <div>
-            <label className="block text-sm font-medium mb-2">Full Name</label>
-            <input
-              type="text"
-              required
-              className="w-full p-3 rounded"
-              placeholder="John Doe"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+    <div className="grid min-h-screen place-items-center px-4 py-10">
+      <div className="w-full max-w-md">
+        <Link to="/landing" className="mb-6 flex items-center justify-center gap-3">
+          <span className="grid h-10 w-10 place-items-center rounded-md bg-accent-green text-sm font-black text-bg-primary">N50</span>
+          <span className="text-lg font-black">Nifty50Sim</span>
+        </Link>
+        <section className="surface p-8">
+          <div className="mb-8 text-center">
+            <h1 className="text-3xl font-semibold tracking-tight">Create workspace</h1>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">
+              Start with simulated capital and trade the NIFTY 50 without real-market risk.
+            </p>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Email Address</label>
-            <input
-              type="email"
-              required
-              className="w-full p-3 rounded"
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+          <form className="space-y-5" onSubmit={handleSubmit}>
+            {error && <div className="rounded-md border border-accent-red/30 bg-accent-red/10 p-3 text-sm text-accent-red">{error}</div>}
 
-          <div>
-            <label className="block text-sm font-medium mb-2">Password</label>
-            <input
-              type="password"
-              required
-              className="w-full p-3 rounded"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-text-secondary">Full name</label>
+              <input type="text" required placeholder="Your name" value={name} onChange={(event) => setName(event.target.value)} />
+            </div>
 
-          <button type="submit" className="btn-register w-full py-3 rounded-lg text-lg font-bold transition-all hover:brightness-110">
-            Create Account
-          </button>
-        </form>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-text-secondary">Email address</label>
+              <input type="email" required placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} />
+            </div>
 
-        <p className="text-center text-sm text-text-secondary">
-          Already have an account?{' '}
-          <Link to="/login" className="text-accent-green hover:underline">Sign in</Link>
-        </p>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-text-secondary">Password</label>
+              <input type="password" required placeholder="Create a password" value={password} onChange={(event) => setPassword(event.target.value)} />
+            </div>
+
+            <button type="submit" className="btn-primary w-full">Create account</button>
+          </form>
+
+          <p className="mt-6 text-center text-sm text-text-secondary">
+            Already registered? <Link to="/login" className="font-semibold text-accent-green hover:text-text-primary">Sign in</Link>
+          </p>
+        </section>
       </div>
     </div>
   );

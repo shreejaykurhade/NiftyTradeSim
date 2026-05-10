@@ -1,126 +1,131 @@
-import { createChart, ColorType, CandlestickSeries } from 'lightweight-charts';
-import { useEffect, useRef } from 'react';
+import { createChart, ColorType, CandlestickSeries, HistogramSeries } from 'lightweight-charts';
+import { useEffect, useMemo, useRef } from 'react';
+import { buildLiveCandle, getVisibleRange, normalizeCandles } from '../utils/chartData';
 
-export default function Chart({ data, liveUpdate, timeframe, range }) {
-  const chartContainerRef = useRef();
-  const chartRef = useRef();
-  const seriesRef = useRef();
+export default function Chart({ data, liveUpdate, timeframe = '1D', range = '1Y', height = 420 }) {
+  const chartContainerRef = useRef(null);
+  const chartRef = useRef(null);
+  const candleSeriesRef = useRef(null);
+  const volumeSeriesRef = useRef(null);
+  const lastCandleRef = useRef(null);
+
+  const candles = useMemo(() => normalizeCandles(data), [data]);
 
   useEffect(() => {
     if (!chartContainerRef.current) return;
 
-    // Initialize chart
     const chart = createChart(chartContainerRef.current, {
+      autoSize: true,
+      height,
       layout: {
-        background: { type: ColorType.Solid, color: '#0b0e11' },
-        textColor: '#848e9c',
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: '#a7b0bf',
+        fontFamily: 'Inter, system-ui, sans-serif',
       },
       grid: {
-        vertLines: { color: '#2b3139' },
-        horzLines: { color: '#2b3139' },
+        vertLines: { color: 'rgba(34, 48, 68, 0.28)' },
+        horzLines: { color: 'rgba(34, 48, 68, 0.36)' },
       },
-      width: chartContainerRef.current.clientWidth,
-      height: 400,
+      rightPriceScale: {
+        borderColor: 'rgba(34, 48, 68, 0.85)',
+        scaleMargins: { top: 0.08, bottom: 0.24 },
+      },
       timeScale: {
-        borderColor: '#2b3139',
-        timeVisible: true,
+        borderColor: 'rgba(34, 48, 68, 0.85)',
+        timeVisible: false,
         secondsVisible: false,
+      },
+      crosshair: {
+        mode: 1,
       },
     });
 
-    // Use the explicit series type from the library
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: '#0ecb81',
-      downColor: '#f6465d',
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: '#16c784',
+      downColor: '#ef4444',
       borderVisible: false,
-      wickUpColor: '#0ecb81',
-      wickDownColor: '#f6465d',
+      wickUpColor: '#16c784',
+      wickDownColor: '#ef4444',
+    });
+
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: 'volume' },
+      priceScaleId: '',
+      color: 'rgba(59, 130, 246, 0.22)',
+    });
+
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: { top: 0.78, bottom: 0 },
     });
 
     chartRef.current = chart;
-    seriesRef.current = series;
-
-    if (data && data.length > 0) {
-      series.setData(data);
-      
-      // Handle range zooming
-      if (range === 'ALL') {
-        chart.timeScale().fitContent();
-      } else {
-        const lastTime = data[data.length - 1].time;
-        let diff = 0;
-        if (range === '1D') diff = 24 * 3600;
-        else if (range === '5D') diff = 5 * 24 * 3600;
-        else if (range === '1W') diff = 7 * 24 * 3600;
-        else if (range === '1M') diff = 30 * 24 * 3600;
-        else if (range === '6M') diff = 180 * 24 * 3600;
-        else if (range === '1Y') diff = 365 * 24 * 3600;
-
-        if (diff > 0) {
-          chart.timeScale().setVisibleRange({
-            from: lastTime - diff,
-            to: lastTime + (diff * 0.05), // small right margin
-          });
-        }
-      }
-    }
-
-    const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-      }
-    };
-
-    window.addEventListener('resize', handleResize);
+    candleSeriesRef.current = candleSeries;
+    volumeSeriesRef.current = volumeSeries;
 
     return () => {
-      window.removeEventListener('resize', handleResize);
       chart.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+      lastCandleRef.current = null;
     };
-  }, [data, range]); // Re-run when range changes
+  }, [height]);
 
-
-  // Handle live WebSocket updates
   useEffect(() => {
-    if (!seriesRef.current || !liveUpdate || !liveUpdate.price) return;
+    if (!chartRef.current || !candleSeriesRef.current || !volumeSeriesRef.current) return;
 
-    // Use the server-provided time, normalized to the current candle period boundary
-    const now = new Date();
-    let timestamp;
-
-    if (timeframe === '1D') {
-      const d = new Date(now);
-      d.setUTCHours(0, 0, 0, 0);
-      timestamp = Math.floor(d.getTime() / 1000);
-    } else if (timeframe === '1W') {
-      const d = new Date(now);
-      const day = d.getUTCDay();
-      const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
-      d.setUTCDate(diff);
-      d.setUTCHours(0, 0, 0, 0);
-      timestamp = Math.floor(d.getTime() / 1000);
-    } else if (timeframe === '1M') {
-      const d = new Date(now);
-      d.setUTCDate(1);
-      d.setUTCHours(0, 0, 0, 0);
-      timestamp = Math.floor(d.getTime() / 1000);
-    } else {
-      timestamp = liveUpdate.time || Math.floor(now.getTime() / 1000);
+    if (!candles.length) {
+      candleSeriesRef.current.setData([]);
+      volumeSeriesRef.current.setData([]);
+      lastCandleRef.current = null;
+      return;
     }
 
+    candleSeriesRef.current.setData(candles);
+    volumeSeriesRef.current.setData(
+      candles.map((candle) => ({
+        time: candle.time,
+        value: candle.volume || 0,
+        color: candle.close >= candle.open ? 'rgba(22, 199, 132, 0.24)' : 'rgba(239, 68, 68, 0.22)',
+      }))
+    );
+    lastCandleRef.current = candles[candles.length - 1];
+
+    const visibleRange = getVisibleRange(candles, range);
+    if (visibleRange) {
+      chartRef.current.timeScale().setVisibleRange(visibleRange);
+    } else {
+      chartRef.current.timeScale().fitContent();
+    }
+  }, [candles, range]);
+
+  useEffect(() => {
+    if (!candleSeriesRef.current || !volumeSeriesRef.current || !liveUpdate?.price) return;
+
+    const nextCandle = buildLiveCandle(lastCandleRef.current, liveUpdate, timeframe);
+    if (!nextCandle) return;
+
     try {
-      seriesRef.current.update({
-        time: timestamp,
-        open: liveUpdate.open || liveUpdate.price,
-        high: liveUpdate.high || liveUpdate.price,
-        low: liveUpdate.low || liveUpdate.price,
-        close: liveUpdate.price,
+      candleSeriesRef.current.update(nextCandle);
+      volumeSeriesRef.current.update({
+        time: nextCandle.time,
+        value: nextCandle.volume || 0,
+        color: nextCandle.close >= nextCandle.open ? 'rgba(22, 199, 132, 0.24)' : 'rgba(239, 68, 68, 0.22)',
       });
-    } catch (err) {
-      // Silently ignore — can happen when the update is older than the last chart point
+      lastCandleRef.current = nextCandle;
+    } catch {
+      // Ignore out-of-order exchange ticks; the next clean snapshot will reset data.
     }
   }, [liveUpdate, timeframe]);
 
-  return <div ref={chartContainerRef} className="w-full h-[400px]" />;
+  return (
+    <div className="relative h-full w-full" style={{ minHeight: height }}>
+      <div ref={chartContainerRef} className="h-full w-full" />
+      {!candles.length && (
+        <div className="absolute inset-0 grid place-items-center text-sm text-text-secondary">
+          No chart data available for this instrument.
+        </div>
+      )}
+    </div>
+  );
 }
-

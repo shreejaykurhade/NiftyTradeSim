@@ -1,95 +1,228 @@
 @import "tailwindcss";
 
 @theme {
-  --color-bg-primary: #0b0e11;
-  --color-bg-secondary: #1e2329;
-  --color-text-primary: #eaecef;
-  --color-text-secondary: #848e9c;
-  --color-accent-green: #0ecb81;
+  --color-bg-primary: #070a0f;
+  --color-bg-secondary: #0d121a;
+  --color-bg-elevated: #111824;
+  --color-bg-soft: #151f2d;
+  --color-text-primary: #f4f7fb;
+  --color-text-secondary: #a7b0bf;
+  --color-text-muted: #697386;
+  --color-accent-green: #16c784;
   --color-accent-blue: #3b82f6;
-  --color-accent-red: #f6465d;
-  --color-border-color: #2b3139;
+  --color-accent-red: #ef4444;
+  --color-accent-amber: #f59e0b;
+  --color-accent-violet: #8b5cf6;
+  --color-border-color: #223044;
 }
 
-html, body {
-  background-color: var(--color-bg-primary);
-  color: var(--color-text-primary);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  margin: 0;
-  padding: 0;
-  overflow-x: hidden;
-  height: 100%;
+* {
+  box-sizing: border-box;
 }
 
+html,
+body,
 #root {
   min-height: 100%;
 }
 
-.glass {
-  background: rgba(30, 35, 41, 0.7);
-  backdrop-filter: blur(10px);
-  border: 1px solid var(--border-color);
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top left, rgba(22, 199, 132, 0.08), transparent 34rem),
+    linear-gradient(180deg, #070a0f 0%, #0a1018 48%, #070a0f 100%);
+  color: var(--color-text-primary);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  overflow-x: hidden;
 }
 
-input, select {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  color: var(--text-primary);
-  border-radius: 4px;
+a {
+  color: inherit;
+  text-decoration: none;
 }
 
-button.primary {
-  background-color: var(--accent-green);
-  color: #0b0e11;
-  font-weight: 600;
-  transition: all 0.2s;
+button,
+input,
+select {
+  font: inherit;
 }
 
-button.primary:hover {
-  filter: brightness(1.1);
+button {
+  cursor: pointer;
 }
 
-button.secondary {
-  background-color: var(--color-accent-blue);
-  color: #ffffff;
-  font-weight: 600;
-  transition: all 0.2s;
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
-button.secondary:hover {
-  filter: brightness(1.1);
-}
-
-.btn-login {
-  background-color: var(--color-accent-green);
-  color: #0b0e11;
-}
-
-.btn-register {
-  background-color: var(--color-accent-blue);
-  color: #ffffff;
-}
-
-.card {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+input,
+select {
+  width: 100%;
+  border: 1px solid var(--color-border-color);
+  background: rgba(13, 18, 26, 0.92);
+  color: var(--color-text-primary);
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 0.75rem 0.9rem;
+  outline: none;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
 }
 
-/* Custom scrollbar */
+input::placeholder {
+  color: var(--color-text-muted);
+}
+
+input:focus,
+select:focus {
+  border-color: rgba(22, 199, 132, 0.7);
+  box-shadow: 0 0 0 3px rgba(22, 199, 132, 0.12);
+}
+
+.app-shell {
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+.container-page {
+  width: min(1480px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.surface {
+  background: rgba(17, 24, 36, 0.78);
+  border: 1px solid rgba(34, 48, 68, 0.9);
+  border-radius: 8px;
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(16px);
+}
+
+.surface-flat {
+  background: rgba(13, 18, 26, 0.92);
+  border: 1px solid rgba(34, 48, 68, 0.85);
+  border-radius: 8px;
+}
+
+.label {
+  color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.btn-primary,
+.btn-secondary,
+.btn-danger,
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.72rem 1rem;
+  font-weight: 700;
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.btn-primary {
+  background: var(--color-accent-green);
+  color: #06110c;
+}
+
+.btn-secondary {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #bfdbfe;
+}
+
+.btn-danger {
+  background: var(--color-accent-red);
+  color: #fff;
+}
+
+.btn-ghost {
+  background: rgba(255, 255, 255, 0.035);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-secondary);
+}
+
+.btn-primary:hover,
+.btn-secondary:hover,
+.btn-danger:hover,
+.btn-ghost:hover {
+  transform: translateY(-1px);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.35rem 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.data-table thead {
+  background: rgba(7, 10, 15, 0.78);
+  color: var(--color-text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.data-table th,
+.data-table td {
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid rgba(34, 48, 68, 0.74);
+  white-space: nowrap;
+}
+
+.data-table tbody tr {
+  transition: background 140ms ease;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
+
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  background: #070a0f;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: #333;
-  border-radius: 10px;
-  border: 2px solid var(--color-bg-primary);
+  background: #263449;
+  border-radius: 999px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
-  background: #444;
+  background: #344761;
 }
