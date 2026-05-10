@@ -14,10 +14,10 @@ router.get('/:symbol', async (req, res) => {
     }
 
     // Check cache first (TTL 1 hour for sentiment)
-    const cacheKey = `sentiment:${symbol}`;
+    const cacheKey = `sentiment:v4:${symbol}`;
     const isRefresh = req.query.refresh === 'true';
 
-    if (!isRefresh) {
+    if (!isRefresh && redisClient.isOpen) {
       const cached = await redisClient.get(cacheKey);
       if (cached) {
         return res.json(JSON.parse(cached));
@@ -27,7 +27,9 @@ router.get('/:symbol', async (req, res) => {
     const sentiment = await getStockSentiment(symbol, stockInfo.name, stockInfo.sector);
     
     // Cache for 1 hour
-    await redisClient.setEx(cacheKey, 3600, JSON.stringify(sentiment));
+    if (redisClient.isOpen) {
+      await redisClient.setEx(cacheKey, 3600, JSON.stringify(sentiment));
+    }
 
     res.json(sentiment);
   } catch (error) {

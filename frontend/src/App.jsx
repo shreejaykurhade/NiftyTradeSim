@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import StockDetail from './pages/StockDetail';
 import Portfolio from './pages/Portfolio';
 import StrategyLab from './pages/StrategyLab';
+import AgentTrading from './pages/AgentTrading';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Landing from './pages/Landing';
@@ -68,6 +69,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <StrategyLab />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/agent-trading"
+            element={
+              <ProtectedRoute>
+                <AgentTrading />
               </ProtectedRoute>
             }
           />

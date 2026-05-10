@@ -67,60 +67,79 @@ class StockAgents:
 
 class NewsAgents:
     """
-    Evaluates news sentiment and outputs a 5D sentiment vector:
-    [Bullish, Bearish, Neutral, Subjectivity, MacroImpact]
+    Evaluates perception and outputs a 5D vector:
+    [DomesticMarket, Peers, InternationalMarket, NewsEvents, TimeRegime]
     """
     def __init__(self):
         pass
 
-    def evaluate(self, symbol, date, news_articles):
+    def evaluate(self, symbol, date, news_articles, current_candle=None, historical_candles=None, peer_candles=None, international_candle=None):
         """
-        Convert news articles into a 5D vector.
-        In a full implementation, this uses an LLM (like Gemini/OpenAI) to score the articles.
-        For now, we simulate the sentiment calculation if articles are empty.
+        Convert market context and news proxies into a 5D perception vector.
         Returns a numpy array of shape (5,)
         """
-        if not news_articles or len(news_articles) == 0:
-            return np.zeros(5, dtype=np.float32)
+        domestic_market = self._domestic_market_agent(current_candle)
+        peers = self._peer_agent(peer_candles)
+        international_market = self._international_agent(international_candle)
+        news_events = self._news_event_agent(news_articles)
+        time_regime = self._time_regime_agent(date, historical_candles)
 
-        bullish_score = 0.0
-        bearish_score = 0.0
-        neutral_score = 0.0
-        subjectivity = 0.0
-        macro_impact = 0.0
-
-        # Simple keyword heuristic if no LLM is directly invoked per article here
-        for article in news_articles:
-            text = article.get('title', '').lower() + " " + article.get('content', '').lower()
-            
-            # 1. Bullish Agent
-            if any(w in text for w in ['surge', 'jump', 'up', 'profit', 'beat', 'growth']):
-                bullish_score += 0.5
-                
-            # 2. Bearish Agent
-            if any(w in text for w in ['plunge', 'drop', 'down', 'loss', 'miss', 'decline']):
-                bearish_score += 0.5
-                
-            # 3. Neutral Agent (fact reporting vs opinion)
-            if any(w in text for w in ['announces', 'reports', 'declares', 'scheduled']):
-                neutral_score += 0.5
-                
-            # 4. Subjectivity Agent (opinion words)
-            if any(w in text for w in ['believe', 'expect', 'might', 'could', 'opinion']):
-                subjectivity += 0.5
-                
-            # 5. Macro Impact Agent
-            if any(w in text for w in ['economy', 'fed', 'rate', 'inflation', 'gdp', 'market']):
-                macro_impact += 0.5
-
-        n = len(news_articles)
         vector = np.array([
-            bullish_score / n,
-            bearish_score / n,
-            neutral_score / n,
-            subjectivity / n,
-            macro_impact / n
+            domestic_market,
+            peers,
+            international_market,
+            news_events,
+            time_regime,
         ], dtype=np.float32)
 
         return np.clip(vector, -1.0, 1.0)
 
+    def _domestic_market_agent(self, candle):
+        if not candle or candle.get('open', 0) == 0:
+            return 0.0
+        return ((candle['close'] - candle['open']) / candle['open']) * 12.0
+
+    def _peer_agent(self, peer_candles):
+        if not peer_candles:
+            return 0.0
+        returns = []
+        for candle in peer_candles:
+            if candle and candle.get('open', 0) != 0:
+                returns.append((candle['close'] - candle['open']) / candle['open'])
+        if not returns:
+            return 0.0
+        return float(np.mean(returns) * 12.0)
+
+    def _international_agent(self, candle):
+        if not candle or candle.get('open', 0) == 0:
+            return 0.0
+        return ((candle['close'] - candle['open']) / candle['open']) * 10.0
+
+    def _news_event_agent(self, news_articles):
+        if not news_articles:
+            return 0.0
+
+        score = 0.0
+        for article in news_articles:
+            text = (article.get('title', '') + " " + article.get('content', '')).lower()
+            if any(w in text for w in ['surge', 'jump', 'profit', 'beat', 'growth', 'upgrade', 'record', 'order win']):
+                score += 0.35
+            if any(w in text for w in ['plunge', 'drop', 'loss', 'miss', 'decline', 'downgrade', 'probe', 'fine']):
+                score -= 0.35
+            if any(w in text for w in ['merger', 'acquisition', 'management', 'policy', 'tariff', 'rate']):
+                score += 0.05 if score >= 0 else -0.05
+        return score / max(len(news_articles), 1)
+
+    def _time_regime_agent(self, date, historical_candles):
+        if not historical_candles or len(historical_candles) < 5:
+            return 0.0
+        recent = historical_candles[-5:]
+        returns = []
+        for candle in recent:
+            if candle.get('open', 0) != 0:
+                returns.append((candle['close'] - candle['open']) / candle['open'])
+        if not returns:
+            return 0.0
+        trend = np.mean(returns) * 10.0
+        weekday_bias = 0.03 if getattr(date, 'weekday', lambda: 2)() in [0, 4] else 0.0
+        return float(trend + weekday_bias)

@@ -5,7 +5,7 @@ import { getSocket, useMarketSocket, useOrderSocket } from '../hooks/useSocket';
 import { useAuth } from '../contexts/AuthContext';
 import Chart from '../components/Chart';
 import MetricCard from '../components/MetricCard';
-import { cleanSymbol, compactVolume, formatCurrency, formatPercent } from '../utils/format';
+import { cleanSymbol, compactVolume, formatCurrency, formatNumber, formatPercent } from '../utils/format';
 
 function calculateRSI(candles, period = 14) {
   if (!candles || candles.length < period + 1) return 50;
@@ -47,9 +47,6 @@ export default function StockDetail() {
   const [sentiment, setSentiment] = useState(null);
   const [sentimentLoading, setSentimentLoading] = useState(false);
   const [sentimentError, setSentimentError] = useState('');
-  const [simulation, setSimulation] = useState(null);
-  const [simulationLoading, setSimulationLoading] = useState(false);
-  const [simulationError, setSimulationError] = useState('');
 
   const rangeOptions = useMemo(() => {
     if (timeframe === '1W') return ['6M', '1Y', '3Y', '5Y', 'ALL'];
@@ -116,43 +113,6 @@ export default function StockDetail() {
       setSentimentError(err.response?.data?.error || err.message || 'Failed to get AI insights');
     } finally {
       setSentimentLoading(false);
-    }
-  };
-
-  const fetchSimulation = async () => {
-    setSimulationLoading(true);
-    setSimulationError('');
-    setSimulation({ logs: [] });
-
-    try {
-      const response = await fetch(`http://localhost:5000/api/agents/simulation/${symbol}`);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder('utf-8');
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop();
-
-        parts.forEach((part) => {
-          if (!part.startsWith('data: ')) return;
-          const parsed = JSON.parse(part.slice(6));
-          if (parsed.type === 'log') {
-            setSimulation((prev) => ({ ...prev, logs: [...(prev?.logs || []), parsed.log] }));
-          }
-          if (parsed.type === 'result') {
-            setSimulation((prev) => ({ ...prev, ...parsed.data, logs: prev?.logs || [] }));
-          }
-        });
-      }
-    } catch (err) {
-      setSimulationError(err.message || 'Failed to run agent simulation');
-    } finally {
-      setSimulationLoading(false);
     }
   };
 
@@ -289,7 +249,7 @@ export default function StockDetail() {
         {activePanel === 'insights' ? (
           <InsightsPanel sentiment={sentiment} loading={sentimentLoading} error={sentimentError} onFetch={() => fetchSentiment(false)} onRefresh={() => fetchSentiment(true)} />
         ) : (
-          <AgentsPanel simulation={simulation} loading={simulationLoading} error={simulationError} onRun={fetchSimulation} />
+          <AgentsPanel symbol={symbol} />
         )}
       </section>
     </div>
@@ -307,37 +267,97 @@ function InsightsPanel({ sentiment, loading, error, onFetch, onRefresh }) {
 
   if (!sentiment) {
     return (
-      <div className="p-8 text-center">
-        <h3 className="text-lg font-semibold">Generate AI market research</h3>
-        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-text-secondary">
-          Pull a structured sentiment report with recommendation, confidence, reasoning, and citations.
-        </p>
-        <button onClick={onFetch} disabled={loading} className="btn-secondary mt-5">{loading ? 'Generating...' : 'Generate report'}</button>
+      <div className="grid gap-6 p-6 lg:grid-cols-[1fr_340px]">
+        <div>
+          <p className="label">AI research</p>
+          <h3 className="mt-3 text-2xl font-semibold">Generate institutional-style market report</h3>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
+            Builds a structured report from live quote context, domestic news, sector/peer context, global market perception, risks, catalysts, and a paper-trade action plan.
+          </p>
+          <button onClick={onFetch} disabled={loading} className="btn-secondary mt-5">
+            {loading ? 'Generating research packet...' : 'Generate AI report'}
+          </button>
+        </div>
+        <div className="rounded-md border border-border-color bg-bg-secondary p-4">
+          <p className="text-sm font-semibold">Report includes</p>
+          <div className="mt-3 grid gap-2 text-sm text-text-secondary">
+            <span>Market snapshot and valuation context</span>
+            <span>Domestic, sector, and global perception</span>
+            <span>Catalysts, risks, and paper-trade plan</span>
+            <span>Source quality and citations</span>
+          </div>
+        </div>
       </div>
     );
   }
 
   const scoreTone = Number(sentiment.score || 0) >= 60 ? 'text-accent-green' : Number(sentiment.score || 0) <= 40 ? 'text-accent-red' : 'text-accent-amber';
+  const quote = sentiment.quote || {};
 
   return (
-    <div className="grid gap-6 p-6 lg:grid-cols-[340px_1fr]">
-      <div className="surface-flat p-5">
+    <div className="grid gap-6 p-6 xl:grid-cols-[360px_1fr]">
+      <div className="space-y-4">
+        <div className="surface-flat p-5">
         <p className="label">Recommendation</p>
         <p className={`mt-3 text-3xl font-semibold ${scoreTone}`}>{sentiment.recommendation || 'Hold'}</p>
         <p className="mt-2 text-sm text-text-secondary">Confidence score: <span className="font-semibold text-text-primary">{sentiment.score || '--'}</span></p>
         <button onClick={onRefresh} disabled={loading} className="btn-ghost mt-5 w-full">{loading ? 'Refreshing...' : 'Refresh report'}</button>
+        </div>
+
+        <div className="surface-flat p-5">
+          <p className="label">Score stack</p>
+          <ScoreBar label="Buy" value={sentiment.buyScore} tone="bg-accent-green" />
+          <ScoreBar label="Hold" value={sentiment.holdScore} tone="bg-accent-amber" />
+          <ScoreBar label="Sell" value={sentiment.sellScore} tone="bg-accent-red" />
+        </div>
+
+        <div className="surface-flat p-5">
+          <p className="label">Live context</p>
+          <div className="mt-4 grid gap-3 text-sm">
+            <InfoRow label="Price" value={quote.price ? formatCurrency(quote.price) : '--'} />
+            <InfoRow label="Day range" value={quote.dayHigh && quote.dayLow ? `${formatCurrency(quote.dayLow)} - ${formatCurrency(quote.dayHigh)}` : '--'} />
+            <InfoRow label="52W range" value={quote.fiftyTwoWeekLow && quote.fiftyTwoWeekHigh ? `${formatCurrency(quote.fiftyTwoWeekLow)} - ${formatCurrency(quote.fiftyTwoWeekHigh)}` : '--'} />
+            <InfoRow label="Volume" value={quote.volume ? formatNumber(quote.volume) : '--'} />
+            <InfoRow label="P/E" value={quote.trailingPE ? Number(quote.trailingPE).toFixed(2) : '--'} />
+          </div>
+        </div>
       </div>
+
       <div className="space-y-5">
         <div>
           <p className="label">Executive summary</p>
           <p className="mt-3 text-sm leading-7 text-text-secondary">{sentiment.summary || 'No summary available.'}</p>
         </div>
+
+        {sentiment.sections && (
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ReportSection title="Market snapshot" items={sentiment.sections.marketSnapshot} />
+            <ReportSection title="Perception" items={sentiment.sections.perception} />
+            <ReportSection title="Catalysts" items={sentiment.sections.catalysts} />
+            <ReportSection title="Risks" items={sentiment.sections.risks} />
+            <ReportSection title="Paper-trade plan" items={sentiment.sections.actionPlan} wide />
+          </div>
+        )}
+
         {sentiment.explanation && (
-          <details className="surface-flat p-4" open>
-            <summary className="cursor-pointer text-sm font-semibold">Full reasoning</summary>
+          <details className="surface-flat p-4">
+            <summary className="cursor-pointer text-sm font-semibold">Analyst narrative</summary>
             <p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-text-secondary">{sentiment.explanation}</p>
           </details>
         )}
+
+        {sentiment.dataQuality && (
+          <div className="surface-flat p-4">
+            <p className="label">Data quality</p>
+            <div className="mt-3 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+              <InfoRow label="Quote" value={sentiment.dataQuality.quote || '--'} />
+              <InfoRow label="Domestic" value={sentiment.dataQuality.domesticSources ?? 0} />
+              <InfoRow label="Sector" value={sentiment.dataQuality.sectorSources ?? 0} />
+              <InfoRow label="Synthesis" value={sentiment.dataQuality.aiSynthesis || '--'} />
+            </div>
+          </div>
+        )}
+
         {sentiment.citations?.length > 0 && (
           <div>
             <p className="label">Sources</p>
@@ -355,50 +375,57 @@ function InsightsPanel({ sentiment, loading, error, onFetch, onRefresh }) {
   );
 }
 
-function AgentsPanel({ simulation, loading, error, onRun }) {
-  if (!simulation && !loading) {
-    return (
-      <div className="p-8 text-center">
-        <h3 className="text-lg font-semibold">Run quantitative agent simulation</h3>
-        <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-text-secondary">
-          Stream the multi-agent evaluation pipeline and compare its action with your own trading thesis.
-        </p>
-        <button onClick={onRun} className="btn-secondary mt-5">Run simulation</button>
-        {error && <p className="mt-4 text-sm text-accent-red">{error}</p>}
+function ScoreBar({ label, value, tone }) {
+  const numeric = Math.max(0, Math.min(100, Number(value || 0)));
+  return (
+    <div className="mt-4">
+      <div className="flex items-center justify-between text-sm">
+        <span className="font-semibold text-text-secondary">{label}</span>
+        <span className="font-bold tabular-nums">{numeric}%</span>
       </div>
-    );
-  }
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-bg-primary">
+        <div className={`h-full rounded-full ${tone}`} style={{ width: `${numeric}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-border-color/60 pb-2 last:border-b-0 last:pb-0">
+      <span className="text-text-muted">{label}</span>
+      <span className="text-right font-semibold text-text-primary">{value}</span>
+    </div>
+  );
+}
+
+function ReportSection({ title, items = [], wide = false }) {
+  const normalizedItems = Array.isArray(items) ? items : [items].filter(Boolean);
+  if (!normalizedItems.length) return null;
 
   return (
-    <div className="grid gap-6 p-6 lg:grid-cols-[320px_1fr]">
-      <div className="surface-flat p-5">
-        <p className="label">Consensus</p>
-        <p className={`mt-3 text-3xl font-semibold ${simulation?.action === 'Sell' ? 'text-accent-red' : simulation?.action === 'Buy' ? 'text-accent-green' : 'text-accent-amber'}`}>
-          {simulation?.action || 'Running'}
-        </p>
-        <p className="mt-2 text-sm text-text-secondary">Score: <span className="font-semibold text-text-primary">{simulation?.consensus_score || '--'}%</span></p>
-        <button onClick={onRun} disabled={loading} className="btn-ghost mt-5 w-full">{loading ? 'Running...' : 'Run again'}</button>
+    <div className={`surface-flat p-4 ${wide ? 'lg:col-span-2' : ''}`}>
+      <p className="label">{title}</p>
+      <div className="mt-3 space-y-2">
+        {normalizedItems.map((item, index) => (
+          <p key={`${title}-${index}`} className="text-sm leading-6 text-text-secondary">{item}</p>
+        ))}
       </div>
-      <div className="rounded-md border border-border-color bg-[#060910] p-4 font-mono text-xs">
-        <div className="mb-4 flex items-center justify-between border-b border-border-color pb-3">
-          <span className="text-text-secondary">agent_network.log</span>
-          <span className={loading ? 'text-accent-green' : 'text-text-muted'}>{loading ? 'streaming' : 'complete'}</span>
-        </div>
-        <div className="max-h-[360px] space-y-3 overflow-y-auto">
-          {simulation?.logs?.length ? (
-            simulation.logs.map((log, index) => (
-              <div key={index} className="grid gap-3 sm:grid-cols-[150px_1fr]">
-                <span className="text-text-muted">[{log.agent}]</span>
-                <span className="text-text-secondary">{log.message}</span>
-              </div>
-            ))
-          ) : (
-            <p className="text-text-secondary">Waiting for streamed logs...</p>
-          )}
-        </div>
-        {simulation?.reasoning && <p className="mt-5 border-t border-border-color pt-4 leading-6 text-text-secondary">{simulation.reasoning}</p>}
+    </div>
+  );
+}
+
+function AgentsPanel({ symbol }) {
+  return (
+    <div className="p-8 text-center">
+      <h3 className="text-lg font-semibold">Agent trading has a dedicated workspace</h3>
+      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-text-secondary">
+        Run the Monte Carlo agent network, inspect the 10D technical and perception state, review scenarios, then return here to place the paper order.
+      </p>
+      <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+        <Link to="/agent-trading" className="btn-primary">Open Agent Trading</Link>
+        <Link to={`/agent-trading?symbol=${encodeURIComponent(symbol)}`} className="btn-ghost">Use this symbol</Link>
       </div>
-      {error && <p className="lg:col-span-2 text-sm text-accent-red">{error}</p>}
     </div>
   );
 }
