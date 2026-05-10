@@ -1,6 +1,7 @@
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../utils/format';
+import nifty50Logo from '../assets/nifty50-logo.svg';
 
 export default function Navbar() {
   const { user, logout } = useAuth();
@@ -23,14 +24,9 @@ export default function Navbar() {
       <div className="container-page flex h-16 items-center justify-between gap-4">
         <div className="flex items-center gap-8">
           <Link to="/" className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-md bg-accent-green text-sm font-black text-bg-primary">
-              N50
-            </span>
+            <img src={nifty50Logo} alt="Nifty50Sim" className="brand-mark" />
             <span>
-              <span className="block text-sm font-black tracking-wide text-text-primary">Nifty50Sim</span>
-              <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-text-muted">
-                Paper Trading
-              </span>
+              <span className="block text-sm font-bold tracking-wide text-text-primary">Nifty50Sim</span>
             </span>
           </Link>
 
