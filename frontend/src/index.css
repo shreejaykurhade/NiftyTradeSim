@@ -92,10 +92,9 @@ select:focus {
 }
 
 .brand-mark {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+  width: 38px;
+  height: 38px;
+  object-fit: contain;
 }
 
 .landing-shell {

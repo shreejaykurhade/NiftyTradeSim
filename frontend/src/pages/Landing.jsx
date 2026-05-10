@@ -85,7 +85,6 @@ export default function Landing() {
           <img src={nifty50Logo} alt="Nifty50Sim" className="brand-mark" />
           <span>
             <span className="block text-base font-bold">Nifty50Sim</span>
-            <span className="block text-xs font-semibold text-text-muted">Market simulator</span>
           </span>
         </Link>
 
