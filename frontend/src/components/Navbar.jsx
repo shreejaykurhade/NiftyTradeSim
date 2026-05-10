@@ -41,6 +41,9 @@ export default function Navbar() {
             <NavLink to="/portfolio" className={navClass}>
               Portfolio
             </NavLink>
+            <NavLink to="/strategy-lab" className={navClass}>
+              Strategy Lab
+            </NavLink>
           </nav>
         </div>
 

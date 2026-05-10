@@ -2,7 +2,11 @@ import yfinance as yf
 import json
 import sys
 import argparse
+import warnings
 from datetime import datetime
+import pandas as pd
+
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 stocks = [
     "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "HINDUNILVR.NS",
@@ -36,21 +40,50 @@ def fetch_data(timeframe="1D", start_date=None, end_date=None):
                 
             df = yf.download(stock, **kwargs)
             if df.empty: continue
+            df = normalize_download_frame(df, stock)
             
             for index, row in df.iterrows():
+                open_price = scalar(row.get("Open"))
+                high_price = scalar(row.get("High"))
+                low_price = scalar(row.get("Low"))
+                close_price = scalar(row.get("Close"))
+                volume = scalar(row.get("Volume", 0))
+
+                if any(value is None for value in [open_price, high_price, low_price, close_price]):
+                    continue
+
                 all_data.append({
                     "symbol": stock,
                     "timeframe": timeframe,
                     "timestamp": index.isoformat(),
-                    "open": float(row["Open"]),
-                    "high": float(row["High"]),
-                    "low": float(row["Low"]),
-                    "close": float(row["Close"]),
-                    "volume": int(row["Volume"]) if "Volume" in row else 0
+                    "open": float(open_price),
+                    "high": float(high_price),
+                    "low": float(low_price),
+                    "close": float(close_price),
+                    "volume": int(volume or 0)
                 })
         except Exception as e:
             print(f"Error {stock}: {e}", file=sys.stderr)
     print(json.dumps(all_data))
+
+def normalize_download_frame(df, stock):
+    if isinstance(df.columns, pd.MultiIndex):
+        if stock in df.columns.get_level_values(-1):
+            df = df.xs(stock, axis=1, level=-1)
+        else:
+            df.columns = df.columns.get_level_values(0)
+    return df
+
+def scalar(value):
+    if value is None:
+        return None
+    if isinstance(value, pd.Series):
+        if value.empty:
+            return None
+        value = value.iloc[0]
+    if pd.isna(value):
+        return None
+    return value
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

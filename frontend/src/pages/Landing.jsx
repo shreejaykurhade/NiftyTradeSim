@@ -81,7 +81,7 @@ export default function Landing() {
 
           <div className="grid lg:grid-cols-[1fr_240px]">
             <div className="min-h-[430px] p-4">
-              <Chart data={demoData} timeframe="1D" range="6M" height={430} />
+              <Chart data={demoData} timeframe="1D" range="6M" height={430} symbol="NIFTY 50" />
             </div>
             <div className="border-t border-border-color bg-bg-secondary/70 p-4 lg:border-l lg:border-t-0">
               <p className="label">Market movers</p>

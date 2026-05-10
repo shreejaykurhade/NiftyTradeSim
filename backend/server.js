@@ -17,6 +17,7 @@ const orderRoutes = require('./src/routes/orders');
 const portfolioRoutes = require('./src/routes/portfolio');
 const candleRoutes = require('./src/routes/candles');
 const sentimentRoutes = require('./src/routes/sentiment');
+const strategyLabRoutes = require('./src/routes/strategyLab');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -38,6 +39,7 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/candles', candleRoutes);
 app.use('/api/sentiment', sentimentRoutes);
 app.use('/api/agents', require('./src/routes/agents'));
+app.use('/api/strategy-lab', strategyLabRoutes);
 
 // Health check
 app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
@@ -51,32 +53,56 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 async function bootstrap() {
+  httpServer.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`❌ Port ${PORT} is already in use. Another backend server is probably already running.`);
+      console.error(`➡️  Use the existing server at http://localhost:${PORT}, or stop it with:`);
+      console.error(`   PowerShell: Get-NetTCPConnection -LocalPort ${PORT} | Select-Object -ExpandProperty OwningProcess | Stop-Process -Force`);
+      process.exit(1);
+    }
+
+    console.error('❌ HTTP server error:', err.message);
+    process.exit(1);
+  });
+
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+  });
+
   try {
-    // Init DB
     await connectDB();
+  } catch (err) {
+    console.error('⚠️ MongoDB unavailable. Metadata routes will work, but auth, portfolio, candles, and backtests need MongoDB:', err.message);
+    return;
+  }
 
-    // Init Redis
-    await connectRedis();
-    console.log('✅ Redis connected');
+  try {
+    try {
+      await connectRedis();
+      console.log('✅ Redis connected');
+    } catch (err) {
+      console.error('⚠️ Redis unavailable. API will start, but live prices and trading execution may be limited:', err.message);
+    }
 
-    // Init WebSocket on the same HTTP server
     initSocket(httpServer);
     console.log('✅ WebSocket server initialized');
 
-    // Auto fetch missing historical data
-    await autoFetchMissingData();
+    if (process.env.ENABLE_AUTO_FETCH === 'true') {
+      autoFetchMissingData().catch((err) => {
+        console.error('⚠️ Historical data auto-fetch failed:', err.message);
+      });
+    } else {
+      console.log('ℹ️ Historical auto-fetch skipped. Set ENABLE_AUTO_FETCH=true to run it on startup.');
+    }
 
-    // Start live market data fetcher (polls every 2s during market hours)
-    startMarketFetcher();
-    console.log('✅ Market data fetcher started');
-
-    httpServer.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-    });
+    try {
+      startMarketFetcher();
+      console.log('✅ Market data fetcher started');
+    } catch (err) {
+      console.error('⚠️ Market data fetcher failed to start:', err.message);
+    }
   } catch (err) {
-    console.error('❌ Bootstrap error:', err.message);
-    console.error('➡️  Ensure MongoDB is running and MONGO_URI is correct in .env');
-    process.exit(1);
+    console.error('❌ Background service bootstrap error:', err.message);
   }
 }
 

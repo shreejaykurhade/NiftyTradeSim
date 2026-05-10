@@ -52,9 +52,9 @@ export default function StockDetail() {
   const [simulationError, setSimulationError] = useState('');
 
   const rangeOptions = useMemo(() => {
-    if (timeframe === '1W') return ['1M', '6M', '1Y', 'ALL'];
-    if (timeframe === '1M') return ['6M', '1Y', 'ALL'];
-    return ['1D', '5D', '1M', '6M', '1Y', 'ALL'];
+    if (timeframe === '1W') return ['6M', '1Y', '3Y', '5Y', 'ALL'];
+    if (timeframe === '1M') return ['1Y', '3Y', '5Y', 'ALL'];
+    return ['1M', '3M', '6M', '1Y', '3Y', '5Y', 'ALL'];
   }, [timeframe]);
 
   useEffect(() => {
@@ -227,7 +227,7 @@ export default function StockDetail() {
             </div>
           </div>
           <div className="min-h-[500px] p-4">
-            <Chart data={candles} liveUpdate={current} timeframe={timeframe} range={range} height={500} />
+            <Chart data={candles} liveUpdate={current} timeframe={timeframe} range={range} height={500} symbol={cleanSymbol(stock.symbol)} />
           </div>
         </section>
 

@@ -6,6 +6,8 @@ const orderSchema = new mongoose.Schema({
   userId: { type: String, ref: 'User', required: true, index: true },
   stockSymbol: { type: String, required: true, index: true },
   type: { type: String, enum: ['BUY', 'SELL'], required: true },
+  orderType: { type: String, enum: ['MARKET', 'LIMIT'], default: 'MARKET' },
+  requestedLimitPrice: { type: Number, default: null },
   price: { type: Number, required: true },
   quantity: { type: Number, required: true },
   total: { type: Number, required: true },
