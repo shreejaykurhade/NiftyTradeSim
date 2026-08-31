@@ -1,10 +1,18 @@
 import json
 import sys
 import time
+import zlib
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import yfinance as yf
 from event_agents import StockAgents, NewsAgents
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from trading_framework.simulation import ConditionalMonteCarlo, MonteCarloConfig
 
 PEER_GROUPS = {
     "IT": ["TCS.NS", "INFY.NS", "HCLTECH.NS", "WIPRO.NS", "TECHM.NS"],
@@ -14,6 +22,36 @@ PEER_GROUPS = {
     "METALS": ["HINDALCO.NS", "JSWSTEEL.NS", "TATASTEEL.NS"],
     "ENERGY": ["RELIANCE.NS", "ONGC.NS", "BPCL.NS", "IOC.NS"],
 }
+
+def fetch_history(symbol, period="5y", attempts=3):
+    """Fetch adjusted history with bounded retries and a separate Ticker fallback."""
+    last_error = None
+    for attempt in range(attempts):
+        try:
+            frame = yf.download(
+                symbol,
+                period=period,
+                interval="1d",
+                auto_adjust=True,
+                progress=False,
+                threads=False,
+                timeout=20,
+            )
+            if frame is not None and not frame.empty:
+                return frame
+        except Exception as exc:
+            last_error = exc
+        time.sleep(0.4 * (attempt + 1))
+
+    try:
+        frame = yf.Ticker(symbol).history(period=period, interval="1d", auto_adjust=True, timeout=20)
+        if frame is not None and not frame.empty:
+            return frame
+    except Exception as exc:
+        last_error = exc
+
+    detail = f": {last_error}" if last_error else ""
+    raise ValueError(f"Historical market data unavailable for {symbol}{detail}")
 
 def infer_peer_symbols(symbol):
     for peers in PEER_GROUPS.values():
@@ -101,19 +139,13 @@ def calculate_consensus(symbols, memory_context=None):
     
     for sym in symbols:
         emit_log("System", f"Initializing Quantitative Agent Simulation for {sym}...", 0.2)
-        emit_log("Orchestrator", "Spinning up asynchronous scraping instances targeting Indian financial portals.", 0.8)
+        emit_log("Orchestrator", "Preparing market, context, memory, and risk-simulation stages.", 0.2)
         
         try:
-            # Simulated Scraper Delays
-            emit_log("Scraper_MControl", f"Connecting to Moneycontrol.com to fetch latest fundamental ratios for {sym}...", 1.2)
-            emit_log("Scraper_Zerodha", "Extracting institutional holding patterns and delivery volumes from Kite API...", 1.5)
-            emit_log("Scraper_Screener", "Parsing quarterly corporate filings and peer-comparison tables from Screener.in...", 1.0)
-            emit_log("Scraper_Groww", "Analyzing retail trader sentiment scores and order book depth from Groww...", 1.2)
-
-            emit_log("DataFetcher", f"Initiating yfinance connection to download historical OHLCV data.", 0.5)
-            df = yf.download(sym, period="15d", interval="1d", auto_adjust=True, progress=False)
-            if df.empty or len(df) < 2:
-                raise ValueError("Not enough historical data")
+            emit_log("DataFetcher", "Downloading five years of adjusted daily OHLCV data for historical simulation.", 0.1)
+            df = fetch_history(sym, period="5y")
+            if df.empty or len(df) < 350:
+                raise ValueError("At least 350 daily candles are required for the risk model")
                 
             emit_log("DataFetcher", f"Successfully retrieved {len(df)} days of verified market data.", 0.3)
             
@@ -192,6 +224,9 @@ def calculate_consensus(symbols, memory_context=None):
                 peer_candles=peer_candles,
                 international_candle=international_candle
             )
+            # External market feeds can contain NaN/Infinity for holidays or
+            # partially populated candles. Treat unavailable signals as neutral.
+            perception_vec = np.nan_to_num(perception_vec, nan=0.0, posinf=1.0, neginf=-1.0)
 
             perception_labels = ["DomesticMarket", "Peers", "InternationalMarket", "NewsEvents", "TimeRegime"]
             for label, value in zip(perception_labels, perception_vec):
@@ -209,9 +244,6 @@ def calculate_consensus(symbols, memory_context=None):
             else:
                 emit_log("MemoryAgent", "Durable memory unavailable for this run; using stateless calibration.", 0.2)
             
-            emit_log("TraderAgent", "Compiling 10D State Vector from Technical 5D + Perception 5D. Establishing connection to FAISS Vector Database...", 0.6)
-            emit_log("TraderAgent", "Querying K-Nearest Neighbors (KNN) from decades of historical market states...", 1.5)
-            
             # Combine vectors
             technical_vec = np.clip(np.array([p_val, v_val, vol_val, m_val, mac_val]), -1.0, 1.0)
             perception_vec = np.clip(np.array(perception_vec), -1.0, 1.0)
@@ -225,68 +257,45 @@ def calculate_consensus(symbols, memory_context=None):
             if m_val > 0.4: reasoning_points.append("bullish moving average momentum")
             elif m_val < -0.4: reasoning_points.append("bearish momentum breakdown")
             
-            reason_str = "The agent network observed " + (", ".join(reasoning_points) if reasoning_points else "mixed/neutral technicals") + ". "
-            
-            # Dynamic scoring: 50% base + average weight * 50%
+            signal_summary = ", ".join(reasoning_points) if reasoning_points else "mixed/neutral technicals"
             technical_weight = np.mean(technical_vec)
             perception_weight = np.mean(perception_vec)
             memory_adjustment = float(memory_context.get("memory_adjustment") or 0.0)
             memory_adjustment = float(np.clip(memory_adjustment, -0.12, 0.12))
-            raw_avg_weight = (technical_weight * 0.6) + (perception_weight * 0.4)
-            avg_weight = float(np.clip(raw_avg_weight + memory_adjustment, -1.0, 1.0))
-            vec_sum = np.sum(technical_vec) + (0.75 * np.sum(perception_vec)) + (memory_adjustment * 2.0)
             if abs(memory_adjustment) > 0:
                 direction = "raising" if memory_adjustment > 0 else "reducing"
-                emit_log("MemoryAgent", f"Memory calibration is {direction} directional confidence by {abs(memory_adjustment):.2f}.", 0.25)
-            
-            # Action thresholding
-            if vec_sum > 0.4:
-                action = 1 # Buy
-            elif vec_sum < -0.4:
-                action = 2 # Sell
-            else:
-                action = 0 # Hold
-                
-            # Confidence score calculation (0-100)
-            # If Buy, confidence = 50 + (avg_weight * 50)
-            # If Sell, confidence = 50 + (abs(avg_weight) * 50)
-            if action == 1:
-                score = 50 + int(max(0, avg_weight) * 50)
-                action_str = "Buy"
-                reason_str += f"FAISS historical matching indicates a highly probable upside (Avg Weight: {avg_weight:.2f})."
-            elif action == 2:
-                score = 50 + int(abs(min(0, avg_weight)) * 50)
-                action_str = "Sell"
-                reason_str += f"FAISS historical matching indicates a probable downside (Avg Weight: {avg_weight:.2f})."
-            else:
-                score = 50 + int(abs(avg_weight) * 20) # Lower confidence for hold
-                action_str = "Hold"
-                reason_str += f"FAISS historical matching yields no clear statistical edge (Avg Weight: {avg_weight:.2f})."
-            
-            score = min(max(score, 0), 100)
-            
-            if action != 0:
-                emit_log("TraderAgent", f"Decision: {action_str} with {score}% confidence based on Technical + Perception 10D FAISS match.", 0.5)
-            else:
-                emit_log("TraderAgent", f"Decision: {action_str}. Insufficient directional signal in current 10D state.", 0.5)
-                
-            scenarios = [
-                {
-                    "name": "Bull-Case (News Driven)",
-                    "probability": float(min(score + 15, 95) if action == 1 else max(score - 15, 5)),
-                    "catalyst": "Positive fundamental catalysts from Screener/Moneycontrol amplifying the current technical momentum."
-                },
-                {
-                    "name": "Bear-Case (Macro Breakdown)",
-                    "probability": float(min((100-score) + 15, 95) if action == 2 else max((100-score) - 15, 5)),
-                    "catalyst": "Broader Nifty 50 contraction forcing algorithmic sell-offs regardless of individual stock strength."
-                },
-                {
-                    "name": "Mean-Reversion (Statistical Arbitrage)",
-                    "probability": float(max(100 - abs((vec_sum * 100)), 10)),
-                    "catalyst": "Price action normalizes towards the 14-day SMA as speculative volume on Groww dries up."
-                }
-            ]
+                emit_log("MemoryAgent", f"Memory calibration is {direction} the bounded context prior by {abs(memory_adjustment):.2f}.", 0.1)
+
+            # Technical state selects historical regimes inside the simulator.
+            # Only perception and evaluated memory form a small bounded context prior,
+            # avoiding double-counting the technical signal.
+            context_score = float(np.clip((0.8 * perception_weight) + memory_adjustment, -1.0, 1.0))
+            seed = zlib.crc32(f"{sym}|{df.index[-1]}".encode("utf-8"))
+            emit_log("RiskEngine", "Selecting comparable historical regimes with robust-scaled exact KNN.", 0.1)
+            emit_log("RiskEngine", "Running 3,000 weighted moving-block Monte Carlo paths over a 10-session horizon.", 0.1)
+            monte_carlo = ConditionalMonteCarlo(MonteCarloConfig()).run(
+                df,
+                context_score=context_score,
+                seed=seed,
+            ).to_dict()
+
+            action_str = monte_carlo["action"]
+            score = monte_carlo["confidence"]
+            diagnostics = monte_carlo["diagnostics"]
+            reason_str = (
+                f"The agent network observed {signal_summary}. "
+                f"Across {diagnostics['simulations']:,} regime-conditioned paths, the median "
+                f"10-session return is {monte_carlo['median_return_pct']:+.2f}%, with "
+                f"{monte_carlo['probability_profit_pct']:.1f}% above estimated trading costs and "
+                f"a 95% expected shortfall of {monte_carlo['expected_shortfall_95_pct']:+.2f}%. "
+                "The action is emitted only when the simulated probability clears the configured threshold."
+            )
+            emit_log(
+                "TraderAgent",
+                f"Decision: {action_str} ({score}% model confidence); median {monte_carlo['median_return_pct']:+.2f}%, "
+                f"VaR95 {monte_carlo['value_at_risk_95_pct']:+.2f}%.",
+                0.1,
+            )
             
             final_result = {
                 "type": "result",
@@ -301,11 +310,13 @@ def calculate_consensus(symbols, memory_context=None):
                     "technical_weight": float(technical_weight),
                     "perception_weight": float(perception_weight),
                     "memory_adjustment": float(memory_adjustment),
-                    "raw_weight": float(raw_avg_weight),
+                    "context_score": float(context_score),
                     "reference_price": float(current_candle["close"]),
                     "market_date": str(df.index[-1]),
                     "memory": memory_context,
-                    "scenarios": scenarios
+                    "scenarios": monte_carlo["scenarios"],
+                    "monte_carlo": monte_carlo,
+                    "model": diagnostics
                 }
             }
             print(json.dumps(final_result))
@@ -318,7 +329,7 @@ def calculate_consensus(symbols, memory_context=None):
                 "data": {
                     "action": "Error",
                     "consensus_score": 0,
-                    "reasoning": "Pipeline failed during execution.",
+                    "reasoning": f"Pipeline failed during execution: {str(e)}",
                     "vector": [0,0,0,0,0],
                     "technical_vector": [0,0,0,0,0],
                     "perception_vector": [0,0,0,0,0],

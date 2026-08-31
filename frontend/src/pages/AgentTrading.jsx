@@ -111,7 +111,7 @@ export default function AgentTrading() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <MetricCard label="Agents" value="10D" tone="blue" subvalue="Technical + perception" />
-            <MetricCard label="Engine" value="Monte Carlo" subvalue="RL-style state matching" />
+            <MetricCard label="Engine" value="Monte Carlo" subvalue="Regime-conditioned bootstrap" />
             <MetricCard label="Actions" value="B/H/S" tone="amber" subvalue="Buy Hold Sell" />
             <MetricCard label="Mode" value="Paper" tone="positive" subvalue="No real money" />
           </div>
@@ -172,7 +172,7 @@ export default function AgentTrading() {
               <>
                 <div className="grid gap-4 md:grid-cols-3">
                   <MetricCard label="Agent action" value={simulation.action || 'Running'} tone={actionTone} />
-                  <MetricCard label="Consensus" value={`${simulation.consensus_score ?? '--'}%`} tone={actionTone} />
+                  <MetricCard label="Decision strength" value={`${simulation.consensus_score ?? '--'}%`} tone={actionTone} />
                   <MetricCard label="State axes" value={stateAxisCount(simulation)} subvalue="10D state" />
                   <MetricCard label="Memory" value={formatSigned(simulation.memory_adjustment)} subvalue="Calibration" />
                 </div>
@@ -216,12 +216,14 @@ export default function AgentTrading() {
                       <SignalWeight label="Memory calibration" value={simulation.memory_adjustment} />
                     </div>
                   )}
+
+                  {simulation.monte_carlo && <MonteCarloPanel result={simulation.monte_carlo} />}
                 </section>
 
                 <section className="surface overflow-hidden">
                   <div className="border-b border-border-color p-5">
                     <h2 className="text-lg font-semibold">Agent event stream</h2>
-                    <p className="mt-1 text-sm text-text-secondary">Live pipeline logs from scraper, market, vector, and trader agents.</p>
+                    <p className="mt-1 text-sm text-text-secondary">Live pipeline logs from market, context, memory, risk, and trader stages.</p>
                   </div>
                   <AgentLog logs={simulation.logs || []} loading={loading} />
                 </section>
@@ -349,6 +351,45 @@ function SignalWeight({ label, value }) {
   );
 }
 
+function MonteCarloPanel({ result }) {
+  const diagnostics = result.diagnostics || {};
+  const metrics = [
+    ['Expected return', `${formatSigned(result.expected_return_pct)}%`],
+    ['Median return', `${formatSigned(result.median_return_pct)}%`],
+    ['Profit probability', `${Number(result.probability_profit_pct || 0).toFixed(1)}%`],
+    ['VaR 95%', `${formatSigned(result.value_at_risk_95_pct)}%`],
+    ['Expected shortfall 95%', `${formatSigned(result.expected_shortfall_95_pct)}%`],
+    ['Expected max drawdown', `${formatSigned(result.expected_max_drawdown_pct)}%`],
+  ];
+
+  return (
+    <div className="mt-5 rounded-md border border-border-color bg-bg-secondary p-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="font-semibold">Monte Carlo risk distribution</h3>
+          <p className="mt-1 text-xs leading-5 text-text-muted">
+            {Number(diagnostics.simulations || 0).toLocaleString()} paths · {diagnostics.horizon_days || '--'} sessions · {diagnostics.effective_neighbors || '--'} effective regimes
+          </p>
+        </div>
+        <span className="rounded-md bg-bg-primary px-3 py-2 text-xs font-bold text-accent-blue">
+          {diagnostics.policy_status === 'RESEARCH_ONLY' ? 'Research only · Not RL' : 'Validated policy'}
+        </span>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {metrics.map(([label, value]) => (
+          <div key={label} className="rounded-md border border-border-color bg-bg-primary p-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-text-muted">{label}</p>
+            <p className="mt-2 text-lg font-semibold tabular-nums">{value}</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-4 text-xs leading-5 text-text-muted">
+        Distributional estimate from historical analog regimes after estimated costs. It is not a guarantee, calibrated win rate, or live-capital authorization.
+      </p>
+    </div>
+  );
+}
+
 function MemoryPanel({ memory }) {
   if (!memory?.enabled) return null;
 
@@ -443,6 +484,9 @@ function ScenarioGrid({ scenarios }) {
             </span>
           </div>
           <p className="mt-4 text-sm leading-6 text-text-secondary">{scenario.catalyst}</p>
+          {scenario.projected_return !== undefined && (
+            <p className="mt-3 text-xl font-semibold tabular-nums">{formatSigned(scenario.projected_return)}%</p>
+          )}
         </article>
       ))}
     </section>
@@ -455,7 +499,7 @@ function AgentOverview() {
       {[
         ['Technical 5D', 'Price, volume, volatility, momentum, and technical macro agents convert raw candles into normalized market features.'],
         ['Perception 5D', 'Domestic market, peers, international market, news/events, and time regime agents add context that can affect the stock or sector.'],
-        ['Trader Agent', 'The final layer converts the combined 10D state into Buy, Hold, or Sell decision support for paper trading.'],
+        ['Risk + policy layer', 'An exact nearest-regime search conditions 3,000 moving-block Monte Carlo paths. A cost-aware threshold converts the resulting distribution into Buy, Hold, or Sell decision support.'],
       ].map(([title, text]) => (
         <section key={title} className="surface p-6">
           <h2 className="text-lg font-semibold">{title}</h2>
@@ -472,8 +516,21 @@ function FrameworkView() {
       <h2 className="text-lg font-semibold">Agent trading framework</h2>
       <AxisGroup title="Technical 5D" axes={TECHNICAL_AXES} offset={0} />
       <AxisGroup title="Perception 5D" axes={PERCEPTION_AXES} offset={5} />
+      <div className="mt-6 grid gap-4 lg:grid-cols-4">
+        {[
+          ['1. Observe', 'Completed daily candles create robust return, trend, volatility, drawdown, and volume-regime features.'],
+          ['2. Condition', 'Exact KNN selects historical regimes only when their full forward outcome is already known.'],
+          ['3. Simulate', 'Weighted three-session blocks generate 3,000 dependent 10-session return paths.'],
+          ['4. Decide', 'Costs and a 58% probability threshold gate Buy/Sell; otherwise the policy emits Hold.'],
+        ].map(([title, text]) => (
+          <div key={title} className="rounded-md border border-border-color bg-bg-secondary p-4">
+            <h3 className="font-semibold">{title}</h3>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">{text}</p>
+          </div>
+        ))}
+      </div>
       <div className="mt-6 rounded-md border border-border-color bg-bg-secondary p-4 text-sm leading-6 text-text-secondary">
-        This system does not auto-place orders yet. It is intentionally decision support first: run the agent, inspect the vector and scenarios, then open the stock trade ticket and execute the paper order yourself.
+        This is a regime-conditioned Monte Carlo policy, not reinforcement learning. RL should only be enabled after a trading environment, reward function, offline training set, purged walk-forward validation, and independent forward-paper evaluation exist. The system does not auto-place orders.
       </div>
     </section>
   );

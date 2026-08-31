@@ -1,14 +1,16 @@
 # Context-Aware Agentic Advisor: Intelligent Trading Simulation for Nifty 50
 
-> An AI-powered trading simulation platform that bridges quantitative market data with qualitative informational context through a sophisticated multi-agent reasoning system.
+> A paper-trading research platform that combines quantitative market data, bounded context signals, reproducible Monte Carlo risk estimates, and explicit validation gates.
 
-[![Status](https://img.shields.io/badge/Status-Production%20Ready-brightgreen)](https://github.com)
+[![Status](https://img.shields.io/badge/Status-Research%20Prototype-orange)](https://github.com)
 [![Node.js](https://img.shields.io/badge/Node.js-%5E18.0.0-green)](https://nodejs.org/)
 [![React](https://img.shields.io/badge/React-19.0.0-blue)](https://react.dev/)
 [![MongoDB](https://img.shields.io/badge/MongoDB-9.3.1-green)](https://www.mongodb.com/)
 [![License](https://img.shields.io/badge/License-ISC-blue)](LICENSE)
 
 ---
+
+> **Model status:** This repository is a paper-trading research prototype, not an institutional-grade or real-money system. Legacy sections below describe the original design proposal and may include targets that have not been independently validated. The live Agent Trading route now uses a leakage-aware, regime-conditioned moving-block Monte Carlo policy and explicitly does **not** claim reinforcement learning. See [`trading_framework/simulation/README.md`](trading_framework/simulation/README.md) for the implemented design and remaining validation gates.
 
 ## Table of Contents
 
@@ -17,11 +19,12 @@
 - [Solution](#solution)
 - [Key Features](#key-features)
 - [System Architecture](#system-architecture)
+- [Quantitative Decision and RL Research Architecture](#quantitative-decision-and-rl-research-architecture)
 - [Technology Stack](#technology-stack)
 - [Project Structure](#project-structure)
 - [Installation & Setup](#installation--setup)
 - [Usage](#usage)
-- [The 6-Agent AI Swarm](#the-6-agent-ai-swarm)
+- [Legacy 6-Agent Design Proposal](#the-6-agent-ai-swarm)
 - [5-Dimensional State Space Model](#5-dimensional-state-space-model)
 - [Configuration](#configuration)
 - [Documentation](#documentation)
@@ -35,7 +38,7 @@
 
 ## Overview
 
-**Context-Aware Agentic Advisor** is an institutional-grade, AI-powered trading simulation platform designed specifically for the **Nifty 50 Index**. It synthesizes real-time quantitative market data (OHLC) with qualitative informational context (news, macro-economic events, policy shifts) through a sophisticated **6-Agent Sequential AI Swarm** powered by Google Gemini AI.
+**Context-Aware Agentic Advisor** is a research-stage paper-trading platform for the **Nifty 50 universe**. It combines market data, context features, portfolio simulation, deterministic strategy backtests, and a leakage-aware conditional Monte Carlo model. It is designed for experimentation and education, not real-money execution.
 
 The system operates within a rigorously controlled **simulation environment** for educational and backtesting purposes, ensuring no actual financial capital is at risk. Users can simulate trading strategies, receive hyper-personalized execution advice, and backtest trading algorithms against historical market data.
 
@@ -43,12 +46,12 @@ The system operates within a rigorously controlled **simulation environment** fo
 
 - **Core Language:** Node.js + React
 - **Market Focus:** Nifty 50 Index
-- **Data Latency:** <10 seconds average
-- **Intelligence Sources:** 15+ per stock
-- **Agents:** 6 specialized AI agents
-- **State Dimensions:** 5D coordinate space
-- **Historical Data:** 10-20 years of daily candles
-- **API Accuracy:** >90% KNN retrieval accuracy
+- **Live decision model:** Regime-conditioned moving-block Monte Carlo
+- **Explanatory state:** Technical 5D + perception 5D
+- **Historical risk state:** 8 leakage-safe dimensions
+- **Simulation:** 3,000 seeded paths over 10 sessions
+- **Historical window:** Five years when available from the prototype data source
+- **Policy status:** `RESEARCH_ONLY`; validation gate not passed
 
 ---
 
@@ -70,11 +73,11 @@ This fragmentation leaves retail investors at a significant disadvantage when ma
 
 We propose an **intelligent, multi-agent trading simulation environment** that:
 
-1. **Unifies Data Sources:** Integrates real-time market data with news, macro-economic events, and sectoral insights
-2. **Implements Factual Induction:** Uses specialized AI agents to correlate macro events with specific stock impacts
-3. **Ensures Reliability:** Employs Auditor agents to eliminate AI hallucinations through systematic fact-checking
-4. **Provides Personalization:** Tailors recommendations to individual user risk profiles and capital constraints
-5. **Enables Learning:** Offers risk-free simulation environment for strategy backtesting and education
+1. **Unifies Research Surfaces:** Connects market data, paper execution, portfolio state, strategy testing, and agent context.
+2. **Separates Explanation from Policy:** Context signals are bounded and cannot silently become unrestricted trading actions.
+3. **Reports Distributions:** Monte Carlo output includes median return, cost-clearing probability, VaR, expected shortfall, and drawdown.
+4. **Fails Closed:** Missing data, insufficient history, non-finite state, or an unvalidated policy produces an explicit research/error status.
+5. **Enables Reproducible Study:** Seeded simulation, chronological evaluation, and versioned model diagnostics support paper-trading research.
 
 ---
 
@@ -87,13 +90,12 @@ We propose an **intelligent, multi-agent trading simulation environment** that:
   - Redis in-memory caching for <10s average latency
   - WebSocket broadcasting to concurrent clients
 
-- **6-Agent Sequential AI Swarm**
-  - Search Orchestrator: Query optimization
-  - Scraper Swarm: News and information ingestion
-  - Context Aggregator: Temporal relevance organization
-  - Deep-Analyst Agent: Factual induction and deduction
-  - Factual Auditor: Hallucination detection and elimination
-  - Portfolio Grader: Sentiment-to-score translation
+- **Context + Risk Pipeline**
+  - Technical and perception feature stages
+  - Exact robust-scaled nearest-regime retrieval
+  - Weighted moving-block Monte Carlo simulation
+  - Cost-aware Buy/Hold/Sell decision rule
+  - Explicit research-only and non-RL diagnostics
 
 - **5-Dimensional State Space Model**
   - Price Action (P): Normalized daily returns
@@ -114,9 +116,9 @@ We propose an **intelligent, multi-agent trading simulation environment** that:
   - Confidence-weighted recommendations
 
 - **Historical Backtesting**
-  - FAISS vector database for KNN retrieval
-  - Monte Carlo RL decision engine
-  - >90% historical neighbor accuracy
+  - Exact FAISS KNN regime conditioning
+  - 3,000-path moving-block Monte Carlo distribution
+  - Cost-aware Buy/Hold/Sell threshold with explicit risk diagnostics
 
 ### 🔐 Security & Reliability
 
@@ -148,19 +150,96 @@ We propose an **intelligent, multi-agent trading simulation environment** that:
 └─────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────┐
-│  Layer 3: Agentic Swarm (AI Engine)                 │
-│  - 6-Agent Sequential Pipeline                      │
-│  - Gemini AI integration                            │
-│  - Tavily Deep Search API                           │
+│  Layer 3: Context + Quant Research Engine           │
+│  - Technical 5D and perception 5D features          │
+│  - 8D historical regime state                       │
+│  - KNN-conditioned moving-block Monte Carlo         │
 └─────────────────────────────────────────────────────┘
                          ↓
 ┌─────────────────────────────────────────────────────┐
 │  Layer 4: Data Persistence                          │
 │  - MongoDB (user, orders, holdings, candles)        │
-│  - FAISS vector database (historical states)        │
+│  - Exact in-memory FAISS regime search              │
 │  - Redis cache (real-time prices)                   │
 └─────────────────────────────────────────────────────┘
 ```
+
+---
+
+## Quantitative Decision and RL Research Architecture
+
+### Implemented model
+
+The live system is a **conditional historical Monte Carlo model**, not RL. For completed adjusted closes $P_t$, one-session log return is
+
+$$
+r_t=\log(P_t/P_{t-1}).
+$$
+
+It constructs an 8D point-in-time state
+
+$$
+x_t=[r_{1,t},r_{5,t},m_{20,t},q_{20/60,t},\sigma_{20,t},\nu_t,d_{60,t},v_t],
+$$
+
+covering short returns, momentum, trend, volatility, volatility regime, drawdown, and volume shock. Candidate states are robust-scaled with median and interquartile range. Only dates with a completely observed forward 10-session path are eligible, preventing future-label leakage.
+
+For squared exact-neighbor distance $d_i$, sampling weights are
+
+$$
+w_i=\frac{\exp(-d_i/\tau)}{\sum_j\exp(-d_j/\tau)},
+\qquad
+\tau=\operatorname{Median}\{d_i:d_i>0\}.
+$$
+
+Three-session blocks from the 80 nearest completed regimes generate 3,000 seeded paths. Terminal path return is
+
+$$
+R_T^{(m)}=\exp\left(\sum_{h=1}^{10}\widehat r_h^{(m)}\right)-1.
+$$
+
+With estimated cost $\kappa=15$ bps and probability gate $\theta=0.58$:
+
+$$
+\pi(x_T)=
+\begin{cases}
+\text{Buy}, & \Pr(R_T>\kappa)\geq\theta \text{ and median}(R_T)>\kappa,\\
+\text{Sell}, & \Pr(R_T<-\kappa)\geq\theta \text{ and median}(R_T)<-\kappa,\\
+\text{Hold}, & \text{otherwise}.
+\end{cases}
+$$
+
+The response includes 95% historical VaR,
+
+$$
+\operatorname{VaR}_{0.95}=F_R^{-1}(0.05),
+$$
+
+and expected shortfall,
+
+$$
+\operatorname{ES}_{0.95}=\mathbb E[R\mid R\leq\operatorname{VaR}_{0.95}].
+$$
+
+### Proposed RL architecture
+
+A real RL system requires a position-aware Markov decision process, logged behavior propensities, net execution rewards, policy learning, and off-policy evaluation. The proposed long-only action is target position $a_t=w_t^*\in\{0,1\}$; Buy/Sell/Hold is derived from the previous and target positions.
+
+The discounted episodic return is
+
+$$
+G_t=\sum_{k=0}^{T-t-1}\gamma^k r_{t+k+1},
+$$
+
+and Monte Carlo RL would estimate
+
+$$
+Q_\pi(s,a)=\mathbb E_\pi[G_t\mid S_t=s,A_t=a]
+$$
+
+from complete episodes before improving the policy. Because the repository does not yet have a qualified offline episode dataset or a validated policy artifact, RL is deliberately disabled. The recommended research direction is conservative offline RL with doubly robust off-policy evaluation, purged walk-forward validation, an untouched holdout, and long shadow deployment.
+
+The full faculty-style derivation—including every feature equation, bootstrap estimator, confidence shrinkage, MDP state/action/reward contract, Conservative Q-Learning objective, doubly robust OPE formula, validation protocol, and governance gates—is in [`trading_framework/simulation/README.md`](trading_framework/simulation/README.md).
 
 ---
 
@@ -306,7 +385,7 @@ NiftyTradeSim-main/
 - **Node.js:** v18.0.0 or higher
 - **MongoDB:** Local instance or MongoDB Atlas connection
 - **Redis:** Local instance (optional, for production)
-- **Python:** 3.8+ (for backtesting scripts)
+- **Python:** 3.12 (tested runtime for simulation and backtesting)
 - **API Keys:**
   - Google Gemini API key
   - Tavily Search API key
@@ -314,8 +393,8 @@ NiftyTradeSim-main/
 ### Step 1: Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/NiftyTradeSim.git
-cd NiftyTradeSim-main
+git clone https://github.com/shreejaykurhade/ly_proj_trading.git
+cd ly_proj_trading
 ```
 
 ### Step 2: Frontend Setup
@@ -333,6 +412,7 @@ npm run dev
 ```bash
 cd ../backend
 npm install
+python -m pip install -r requirements-dev.txt
 ```
 
 ### Step 4: Environment Configuration
@@ -345,23 +425,20 @@ PORT=5000
 NODE_ENV=development
 
 # Database
-MONGODB_URI=mongodb://localhost:27017/niftytrade
+MONGO_URI=mongodb://localhost:27017/niftytrade
 REDIS_HOST=localhost
 REDIS_PORT=6379
 
+# Optional when the required packages are installed in a non-default interpreter
+PYTHON_BIN=C:\path\to\python.exe
+
 # External APIs
-GEMINI_API_KEY=your_gemini_api_key
+GOOGLE_API_KEY=your_gemini_api_key
 TAVILY_API_KEY=your_tavily_api_key
 
 # JWT
 JWT_SECRET=your_jwt_secret_key_here_make_it_long_and_random
 
-# Stock Symbols (Nifty 50)
-STOCK_SYMBOLS=RELIANCE.NS,TCS.NS,INFY.NS,HDFC.NS,ICICIBANK.NS,...
-
-# Market Hours (IST)
-MARKET_OPEN=09:15
-MARKET_CLOSE=15:30
 ```
 
 ### Step 5: Database Setup
@@ -404,15 +481,17 @@ Open your browser and navigate to:
 2. View live Nifty 50 prices updating every 10 seconds
 3. Click on individual stocks for detailed analysis
 
-### Triggering Agentic Analysis
+### Running Agent Trading Research
 
-1. Click **"Request Analysis"** on any stock
-2. System will:
-   - Execute 6-Agent Sequential Swarm
-   - Gather 15+ news sources
-   - Perform factual induction
-   - Generate sentiment score
-   - Display 5D vector mapping
+1. Navigate to **Agent Trading** and select a supported instrument.
+2. Click **Run agent simulation**.
+3. The streamed pipeline will:
+   - calculate technical and perception context;
+   - build the leakage-safe historical regime state;
+   - retrieve exact comparable regimes;
+   - simulate 3,000 10-session paths;
+   - report decision strength, VaR, expected shortfall, drawdown, and scenarios;
+   - retain `RESEARCH_ONLY` status until validation gates pass.
 
 ### Executing Simulated Trades
 
@@ -438,16 +517,18 @@ Use the Python backtesting engine:
 # Generate historical state vectors
 python scripts/fetch_data.py --symbol RELIANCE.NS --years 10
 
-# Index historical data with FAISS
-python scripts/faiss_store.py
+# Run the live regime-conditioned Monte Carlo agent pipeline
+python backend/scripts/run_agents.py RELIANCE.NS '{}'
 
-# Run Monte Carlo RL analysis
-python scripts/monte_carlo_rl.py --symbol RELIANCE.NS
+# Run deterministic simulation tests
+python -m pytest trading_framework/tests/test_conditional_monte_carlo.py -q
 ```
 
 ---
 
 ## The 6-Agent AI Swarm
+
+> **Legacy proposal:** This section records the original conceptual agent design. It is not the mathematical contract of the live trading policy. The implemented model is documented in [Quantitative Decision and RL Research Architecture](#quantitative-decision-and-rl-research-architecture).
 
 The system's intelligence core consists of 6 specialized agents that work sequentially:
 
@@ -667,38 +748,33 @@ GET /api/orders/history
 #### Agent Endpoints
 
 ```
-POST /api/agents/analyze
-  - Body: { symbol }
-  - Returns: 6-Agent analysis with 5D vector
+GET /api/agents/simulation/:symbol
+  - Returns: streamed agent events, Monte Carlo distribution, action, and diagnostics
+
+GET /api/agents/memory?symbol=:symbol
+  - Returns: evaluated paper-decision memory and bounded calibration context
 ```
 
 ---
 
 ## Performance Metrics
 
-### Achieved Metrics
+No production latency, uptime, load, retrieval-accuracy, or hallucination claim is made without a reproducible benchmark artifact.
 
-| Metric | Target | Achieved | Status |
-|--------|--------|----------|--------|
-| Market Data Latency | <10s | <10s avg | ✅ |
-| Concurrent Users | 100+ | Tested @ 50 | ✅ |
-| Agent Latency | <15s | 12-14s avg | ✅ |
-| KNN Retrieval Accuracy | >90% | >90% | ✅ |
-| Hallucination Rate | <1% | <1% | ✅ |
-| System Uptime | >99% | 99.5% (dev) | ✅ |
-| API Response Time | <200ms | 150ms avg | ✅ |
-| Database Query Time | <50ms | 40ms avg | ✅ |
+### Current chronological RELIANCE research result
 
-### Load Testing Results
+| Metric | Observed result |
+|---|---:|
+| Non-overlapping 10-session test windows | 74 |
+| Directional coverage | 17.57% |
+| Directional accuracy | 61.54% |
+| Position changes | 6 |
+| Invested windows | 31.08% |
+| Long-only policy return | -0.06% |
+| Buy-and-hold return over evaluation span | +7.22% |
+| Policy maximum drawdown | -18.42% |
 
-```
-Concurrent Users: 50
-Average Response Time: 245ms
-95th Percentile: 450ms
-99th Percentile: 890ms
-Error Rate: 0.02%
-Throughput: 1,250 requests/second
-```
+This evidence does not pass a production gate. The API and UI therefore identify the policy as `RESEARCH_ONLY`, `NOT_PASSED`, and `is_reinforcement_learning: false`.
 
 ---
 
@@ -706,31 +782,31 @@ Throughput: 1,250 requests/second
 
 ### Technical Insights
 
-1. **Agent Specialization:** Breaking monolithic LLM prompts into specialized agents with clear responsibilities significantly improves output quality and reduces hallucination rates to <1%.
+1. **Separate explanation from policy:** Human-readable agent context and the quantitative decision rule require different state contracts and validation.
 
-2. **Redis Caching Critical:** In-memory caching reduced average latency from potential 30+ seconds (direct API polling) to consistent <10 seconds—validating the value of intermediate caching layers.
+2. **Streaming needs explicit failure states:** A child process that exits without a result must emit a terminal error event; otherwise the UI remains indefinitely in a running state.
 
-3. **Systematic Fact-Checking:** The Auditor Agent pattern of cross-referencing generated text against raw source data eliminates hallucinations effectively and builds user confidence.
+3. **Non-finite data must fail closed or become neutral:** Missing international-market observations previously propagated `NaN` into the action calculation.
 
-4. **Historical Data Sufficiency:** 10-20 years of historical data proved sufficient for meaningful K-Nearest Neighbors retrieval in FAISS; shorter periods resulted in underfitting; longer periods showed diminishing returns.
+4. **Historical Data Sufficiency:** No universal sufficiency claim is made. The live prototype uses five years when available and reports its effective neighbor count; production eligibility requires multi-regime, point-in-time data and walk-forward validation.
 
-5. **Semantic Deduplication:** Cosine similarity-based duplicate elimination on headlines reduced context pollution by ~60% before feeding to LLM context windows.
+5. **Validation outranks model complexity:** A sophisticated label is not evidence. The current walk-forward portfolio result does not beat its baseline, so the model remains research-only.
 
 ### Architectural Insights
 
-1. **Documentation Discipline:** Creating comprehensive UML diagrams and SRS documentation at project inception significantly reduced implementation ambiguity and enabled efficient team parallelization.
+1. **Documentation is part of the model:** Equations, timestamps, cost assumptions, seeds, state semantics, and acceptance gates must agree with executable code.
 
 2. **Modular Architecture:** Separating frontend, backend services, and AI engine as distinct modules enabled independent optimization without requiring full system integration for each iteration.
 
-3. **State Machine Modeling:** Explicit state machine modeling prevented race conditions and made debugging substantially easier than implicit flow logic.
+3. **Position state removes action ambiguity:** Buy, Sell, and Hold should be derived from previous and target exposure; Sell is an exit in the long-only environment, not an implicit short.
 
-4. **WebSocket Complexity:** While Socket.io provided reliable concurrent client management, careful attention to connection lifecycle and memory leak prevention was required.
+4. **Research and runtime are different lifecycles:** Offline training, evaluation, model registration, streaming inference, and paper execution should remain independently testable components.
 
 ### Project Insights
 
 1. **Simulation Environment Benefits:** Focusing exclusively on simulation (not live broker integration) enabled rapid prototyping and testing without regulatory complexity or financial risk exposure.
 
-2. **Financial Efficiency:** Strategic selection of open-source technologies resulted in 95% under-budget expenditure while maintaining institutional-grade reliability.
+2. **Open-source components improve inspectability:** They do not establish reliability without reproducible load, statistical, security, and operational evidence.
 
 3. **User Feedback Value:** Early collection and incorporation of user feedback during development drove feature prioritization more effectively than upfront requirements estimation.
 
@@ -833,11 +909,11 @@ For questions, suggestions, or support:
 
 ## Project Status
 
-**Current Phase:** Production Ready | Optimization Underway
+**Current Phase:** Research Prototype | Paper Trading Only
 
 - ✅ Core Functionality: Complete
-- ✅ 6-Agent Swarm: Fully Integrated
-- ✅ Real-Time Pipeline: Production Ready
+- ✅ Context and market pipeline: Integrated for research use
+- ⚠️ Real-Time Pipeline: Prototype; not independently load-tested
 - ✅ Portfolio Management: Complete
 - ⏳ Performance Optimization: In Progress
 - ⏳ Production Deployment: Scheduled
@@ -850,5 +926,5 @@ For questions, suggestions, or support:
 
 ---
 
-*This project demonstrates the practical application of multi-agent AI systems in financial technology, combining sophisticated reasoning with institutional-grade reliability and user-centric design.*
+*This project demonstrates a paper-trading research architecture. It does not claim institutional-grade reliability or suitability for real-money execution.*
 

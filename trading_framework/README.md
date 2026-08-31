@@ -10,6 +10,7 @@ This folder intentionally lives outside `frontend/` and `backend/` so web UI, AP
 trading_framework/
   backtesting/       Python backtest engine, portfolio accounting, metrics, result models
   core/              Shared Python types such as Candle, Signal, StrategyFunction
+  simulation/        Regime-conditioned Monte Carlo risk and decision-support policy
   strategies/        Strategy definitions grouped by technique
   executionEngine.js Reusable JS execution rules used by the backend API
   index.js           JS framework entrypoint
@@ -23,6 +24,7 @@ trading_framework/
 - Metrics/analyzers stay separate from strategies so experiments remain comparable.
 - New quant techniques should be added as new modules under `strategies/`.
 - New performance analytics should be added under `backtesting/`.
+- Forecast distributions and risk policies live under `simulation/`; they are not described as RL unless a trained, validated policy artifact is actually used.
 
 This mirrors the separation used by mature trading tools: Backtrader separates strategies, indicators, sizers, analyzers, and broker execution; vectorbt builds portfolios from signals; Freqtrade keeps strategy customization separate from backtesting/runtime behavior.
 

@@ -3,11 +3,17 @@ from faiss_store import FaissStore
 
 class MonteCarloRLAgent:
     """
-    A Monte Carlo RL Agent that uses FAISS for continuous state space approximation.
-    State: 5D Vector
-    Actions: 0 (Hold), 1 (Buy), 2 (Sell)
+    Deprecated, untrained RL sketch retained only to make old imports fail clearly.
+
+    The live application uses trading_framework.simulation.ConditionalMonteCarlo.
+    Do not re-enable this class without an offline training artifact and a
+    leakage-safe walk-forward evaluation.
     """
     def __init__(self, k_neighbors=5, discount_factor=0.99):
+        raise RuntimeError(
+            "MonteCarloRLAgent is an untrained legacy prototype and is disabled. "
+            "Use trading_framework.simulation.ConditionalMonteCarlo."
+        )
         self.k_neighbors = k_neighbors
         self.gamma = discount_factor
         self.store = FaissStore(dimension=5)

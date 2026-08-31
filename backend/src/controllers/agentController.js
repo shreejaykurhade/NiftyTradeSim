@@ -7,6 +7,8 @@ const {
 } = require('../services/agentMemoryService');
 
 async function getAgentConsensus(req, res) {
+  let childProcess = null;
+
   try {
     const symbol = req.params.symbol || 'TCS.NS';
     const userId = getActorId(req);
@@ -18,18 +20,20 @@ async function getAgentConsensus(req, res) {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
     
     // Send an initial handshake
     res.write(`data: ${JSON.stringify({ type: 'handshake', message: 'SSE Connection Established' })}\n\n`);
 
     const pythonScript = path.join(__dirname, '..', '..', 'scripts', 'run_agents.py');
-    const process = spawn('python', [pythonScript, symbol, JSON.stringify(memoryContext)]);
+    const pythonCommand = process.env.PYTHON_BIN || 'python';
+    childProcess = spawn(pythonCommand, [pythonScript, symbol, JSON.stringify(memoryContext)]);
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
 
     console.log(`\n================= LIVE AGENT PIPELINE (${symbol}) =================`);
     
-    process.stdout.on('data', (data) => {
-      // The python script might output multiple JSONs in one chunk, split by newline
-      const lines = data.toString().split('\n').filter(line => line.trim() !== '');
+    const forwardLines = (lines) => {
       for (const line of lines) {
         try {
           const parsed = JSON.parse(line);
@@ -54,13 +58,42 @@ async function getAgentConsensus(req, res) {
           console.error("Non-JSON output from python:", line);
         }
       }
+    };
+
+    childProcess.stdout.on('data', (data) => {
+      stdoutBuffer += data.toString();
+      const lines = stdoutBuffer.split(/\r?\n/);
+      stdoutBuffer = lines.pop() || '';
+      forwardLines(lines.filter((line) => line.trim() !== ''));
     });
 
-    process.stderr.on('data', (data) => {
+    childProcess.stderr.on('data', (data) => {
+      stderrBuffer += data.toString();
       console.error(`Python stderr: ${data}`);
     });
 
-    process.on('close', (code) => {
+    childProcess.on('error', (err) => {
+      stderrBuffer += err.message;
+      console.error('Failed to start agent pipeline:', err.message);
+    });
+
+    childProcess.on('close', (code) => {
+      if (stdoutBuffer.trim()) forwardLines([stdoutBuffer]);
+
+      if (!finalResult) {
+        const detail = stderrBuffer.trim().split(/\r?\n/).pop();
+        finalResult = {
+          action: 'Error',
+          consensus_score: 0,
+          reasoning: detail || `Agent pipeline exited with code ${code} before producing a result.`,
+          technical_vector: [],
+          perception_vector: [],
+          state_vector: [],
+          scenarios: [],
+        };
+        res.write(`data: ${JSON.stringify({ type: 'result', data: finalResult })}\n\n`);
+      }
+
       console.log(`Agent pipeline closed with code ${code}`);
       recordAgentRun({
         userId,
@@ -71,6 +104,10 @@ async function getAgentConsensus(req, res) {
       }).catch((err) => {
         console.error('Failed to persist agent memory:', err.message);
       }).finally(() => res.end());
+    });
+
+    res.on('close', () => {
+      if (!res.writableEnded && childProcess && !childProcess.killed) childProcess.kill();
     });
 
   } catch (err) {

@@ -1,0 +1,4 @@
+numpy==2.4.0
+pandas==2.3.3
+yfinance==1.2.0
+faiss-cpu==1.13.2

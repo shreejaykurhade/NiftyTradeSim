@@ -106,7 +106,8 @@ async function buildMemoryContext({ userId, symbol, currentPrice }) {
   }
 
   await resolvePendingOutcomes(userId, symbol, referencePrice);
-  const runs = await AgentRun.find({ userId, symbol }).sort({ createdAt: -1 }).limit(30).lean();
+  const runs = await AgentRun.find({ userId, symbol, action: { $in: ['Buy', 'Hold', 'Sell'] } })
+    .sort({ createdAt: -1 }).limit(30).lean();
   return {
     enabled: true,
     reference_price: referencePrice || null,
@@ -124,7 +125,7 @@ async function fetchReferencePrice(symbol) {
 }
 
 async function recordAgentRun({ userId, symbol, result, logs, memoryContext }) {
-  if (!isMongoReady() || !result) return null;
+  if (!isMongoReady() || !result || !['Buy', 'Hold', 'Sell'].includes(result.action)) return null;
 
   return AgentRun.create({
     userId,
@@ -168,7 +169,8 @@ async function getAgentMemory(req, res) {
     });
   }
 
-  const runs = await AgentRun.find({ userId, symbol }).sort({ createdAt: -1 }).limit(30).lean();
+  const runs = await AgentRun.find({ userId, symbol, action: { $in: ['Buy', 'Hold', 'Sell'] } })
+    .sort({ createdAt: -1 }).limit(30).lean();
   res.json({ enabled: true, ...summarizeRuns(runs) });
 }
 
