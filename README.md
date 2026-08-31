@@ -189,7 +189,7 @@ For squared exact-neighbor distance $d_i$, sampling weights are
 $$
 w_i=\frac{\exp(-d_i/\tau)}{\sum_j\exp(-d_j/\tau)},
 \qquad
-\tau=\operatorname{Median}\{d_i:d_i>0\}.
+\tau=\mathrm{Median}\{d_i:d_i>0\}.
 $$
 
 Three-session blocks from the 80 nearest completed regimes generate 3,000 seeded paths. Terminal path return is
@@ -212,13 +212,13 @@ $$
 The response includes 95% historical VaR,
 
 $$
-\operatorname{VaR}_{0.95}=F_R^{-1}(0.05),
+\mathrm{VaR}_{0.95}=F_R^{-1}(0.05),
 $$
 
 and expected shortfall,
 
 $$
-\operatorname{ES}_{0.95}=\mathbb E[R\mid R\leq\operatorname{VaR}_{0.95}].
+\mathrm{ES}_{0.95}=\mathbb E[R\mid R\leq\mathrm{VaR}_{0.95}].
 $$
 
 ### Proposed RL architecture

@@ -95,7 +95,7 @@ The axes are domestic market, sector peers, international market, news/events, a
 The Monte Carlo state already contains technical market information, so the technical mean is not added again. Only perception plus evaluated memory forms a small prior:
 
 $$
-c_t = \operatorname{clip}\left(0.8\,\overline{z_t^{\text{perception}}} + m_t, -1, 1\right),
+c_t = \mathrm{clip}\left(0.8\,\overline{z_t^{\text{perception}}} + m_t, -1, 1\right),
 $$
 
 where $m_t \in [-0.12,0.12]$ is the bounded memory adjustment. This prior may move the full 10-session distribution by at most 25 bps:
@@ -128,15 +128,15 @@ The implemented components are:
 
 3. **Twenty-day momentum relative to the simple average**
 
-   $$m_{20,t}=\frac{P_t}{\operatorname{SMA}_{20}(P)_t}-1.$$
+   $$m_{20,t}=\frac{P_t}{\mathrm{SMA}_{20}(P)_t}-1.$$
 
 4. **20/60 exponential trend spread**
 
-   $$q_{20/60,t}=\frac{\operatorname{EMA}_{20}(P)_t}{\operatorname{EMA}_{60}(P)_t}-1.$$
+   $$q_{20/60,t}=\frac{\mathrm{EMA}_{20}(P)_t}{\mathrm{EMA}_{60}(P)_t}-1.$$
 
 5. **Annualized 20-day realized volatility**
 
-   $$\sigma_{20,t}=\sqrt{252}\;\operatorname{Std}(r_{t-19:t}).$$
+   $$\sigma_{20,t}=\sqrt{252}\;\mathrm{Std}(r_{t-19:t}).$$
 
 6. **Volatility regime**
 
@@ -148,7 +148,7 @@ The implemented components are:
 
 8. **Volume shock relative to the rolling median**
 
-   $$v_t=\log\left(\frac{V_t}{\operatorname{Median}(V_{t-19:t})}\right).$$
+   $$v_t=\log\left(\frac{V_t}{\mathrm{Median}(V_{t-19:t})}\right).$$
 
 Rows containing undefined or infinite values are rejected after the rolling warm-up.
 
@@ -161,7 +161,7 @@ Let $\mathcal{C}_T$ be the candidate set at current time $T$. A candidate date $
 For feature $j$, compute the candidate median $\mu_j$ and interquartile range $s_j$:
 
 $$
-\mu_j = \operatorname{Median}_{i\in\mathcal{C}_T}(x_{i,j}), \qquad
+\mu_j = \mathrm{Median}_{i\in\mathcal{C}_T}(x_{i,j}), \qquad
 s_j = Q_{0.75}(x_{\cdot,j})-Q_{0.25}(x_{\cdot,j}).
 $$
 
@@ -182,7 +182,7 @@ The engine uses FAISS `IndexFlatL2`, which is an exhaustive exact search. With r
 The $K$ smallest-distance regimes receive temperature-scaled weights:
 
 $$
-\tau=\operatorname{Median}\{d_i:d_i>0\}, \qquad
+\tau=\mathrm{Median}\{d_i:d_i>0\}, \qquad
 w_i=\frac{\exp(-d_i/\max(\tau,\epsilon))}{\sum_{j=1}^{K}\exp(-d_j/\max(\tau,\epsilon))}.
 $$
 
@@ -206,7 +206,7 @@ $$
 
 For simulation $m$ and block start $b\in\{1,1+B,1+2B,\ldots\}$:
 
-1. sample a neighbor index $I_{m,b}\sim\operatorname{Categorical}(w_1,\ldots,w_K)$;
+1. sample a neighbor index $I_{m,b}\sim\mathrm{Categorical}(w_1,\ldots,w_K)$;
 2. copy the corresponding $B$-session return block from $y_{I_{m,b}}$;
 3. continue until $H$ returns are populated.
 
@@ -289,7 +289,7 @@ $$
 Final strength shrinks toward 50 when evidence is thin:
 
 $$
-C=\operatorname{clip}_{[50,95]}\left(50+(100q-50)\rho\right).
+C=\mathrm{clip}_{[50,95]}\left(50+(100q-50)\rho\right).
 $$
 
 This number must not be presented as accuracy until an independent calibration study maps it to observed frequencies.
@@ -305,7 +305,7 @@ Let $\widehat F_R$ be the empirical CDF of simulated terminal returns.
 The lower-tail 95% VaR return is
 
 $$
-\operatorname{VaR}_{0.95}=\widehat F_R^{-1}(0.05).
+\mathrm{VaR}_{0.95}=\widehat F_R^{-1}(0.05).
 $$
 
 The API reports this as a signed return. A value of $-6.85\%$ means 5% of simulated paths finish below approximately $-6.85\%$; it does not mean losses are capped there.
@@ -313,7 +313,7 @@ The API reports this as a signed return. A value of $-6.85\%$ means 5% of simula
 ### 8.2 Expected shortfall
 
 $$
-\operatorname{ES}_{0.95}=\mathbb{E}[R\mid R\leq\operatorname{VaR}_{0.95}].
+\mathrm{ES}_{0.95}=\mathbb{E}[R\mid R\leq\mathrm{VaR}_{0.95}].
 $$
 
 Expected shortfall summarizes the mean of the worst 5% of simulated terminal outcomes.
@@ -428,10 +428,10 @@ A later continuous policy may use $w_t^*\in[0,w_{\max}]$, but only after liquidi
 Let $\Delta w_t=w_t^*-w_{t-1}$. A simulated execution price can be modeled as
 
 $$
-\widetilde P_t=P_t\left[1+\operatorname{sign}(\Delta w_t)\left(\frac{\text{spread}_t}{2}+\eta\sqrt{\frac{|Q_t|}{\operatorname{ADV}_t}}\right)\right],
+\widetilde P_t=P_t\left[1+\mathrm{sign}(\Delta w_t)\left(\frac{\text{spread}_t}{2}+\eta\sqrt{\frac{|Q_t|}{\mathrm{ADV}_t}}\right)\right],
 $$
 
-where $Q_t$ is order quantity, $\operatorname{ADV}_t$ is average daily volume, and $\eta$ is estimated impact. Brokerage, STT, exchange fees, GST, stamp duty, and taxes must be explicit cost terms rather than a single generic constant.
+where $Q_t$ is order quantity, $\mathrm{ADV}_t$ is average daily volume, and $\eta$ is estimated impact. Brokerage, STT, exchange fees, GST, stamp duty, and taxes must be explicit cost terms rather than a single generic constant.
 
 #### Portfolio transition
 
@@ -460,7 +460,7 @@ For risk-sensitive research, optimize a constrained objective such as
 $$
 \max_\pi\;\mathbb{E}_\pi[G_0]
 \quad\text{subject to}\quad
-\operatorname{CVaR}_{0.95}(-G_0)\leq L_{\max}.
+\mathrm{CVaR}_{0.95}(-G_0)\leq L_{\max}.
 $$
 
 The constraint and penalty coefficients must be frozen before the final test set is opened.
