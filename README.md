@@ -132,37 +132,91 @@ We propose an **intelligent, multi-agent trading simulation environment** that:
 
 ## System Architecture
 
-### 4-Layer Architecture
+### End-to-End Runtime Architecture
 
+```mermaid
+flowchart LR
+    User([Research user])
+
+    subgraph Client["Presentation layer — frontend/"]
+        SPA["React 19 + Vite SPA"]
+        Views["Market, portfolio, strategy lab,<br/>and agent-trading views"]
+        StreamUI["Live prices and agent event stream"]
+        SPA --> Views
+        SPA --> StreamUI
+    end
+
+    subgraph Node["Application layer — backend/"]
+        API["Express API gateway"]
+        Auth["JWT authentication<br/>and rate limiting"]
+        Market["Market-data service<br/>and 10-second scheduler"]
+        Paper["Paper order matcher<br/>and portfolio service"]
+        AgentRoute["Agent simulation route<br/>and SSE coordinator"]
+        Socket["Socket.IO broadcaster"]
+
+        API --> Auth
+        API --> Market
+        API --> Paper
+        API --> AgentRoute
+        Market --> Socket
+    end
+
+    subgraph Quant["Research layer — trading_framework/"]
+        Bridge["Python process bridge<br/>backend/scripts/run_agents.py"]
+        Context["Technical 5D + perception 5D<br/>context network"]
+        Memory["Outcome memory<br/>bounded calibration signal"]
+        State["Leakage-safe 8D<br/>historical regime state"]
+        KNN["Robust scaling + exact KNN<br/>comparable regimes"]
+        MC["Seeded weighted moving-block<br/>Monte Carlo: 3,000 × 10 sessions"]
+        Policy["Cost-aware Buy / Hold / Sell<br/>risk diagnostics + research gate"]
+
+        Bridge --> Context
+        Bridge --> Memory
+        Bridge --> State
+        State --> KNN --> MC
+        Context --> MC
+        Memory --> MC
+        MC --> Policy
+    end
+
+    subgraph Data["State and persistence"]
+        Mongo[("MongoDB<br/>users, orders, holdings,<br/>candles, agent memory")]
+        Redis[("Redis<br/>price cache and pub/sub")]
+        Index[("In-memory exact<br/>regime index")]
+    end
+
+    subgraph External["Read-only external inputs"]
+        Prices["Market and historical<br/>OHLCV provider"]
+        News["News and market-context<br/>sources"]
+    end
+
+    User -->|"Browser session"| SPA
+    SPA -->|"REST /api/*"| API
+    SPA <-->|"Socket.IO"| Socket
+    SPA <-->|"SSE agent events + result"| AgentRoute
+
+    Prices --> Market
+    Prices --> Bridge
+    News --> Bridge
+    Market <--> Redis
+    Market --> Mongo
+    Paper <--> Mongo
+    AgentRoute --> Bridge
+    AgentRoute <--> Mongo
+    KNN <--> Index
+    Policy --> AgentRoute
+
+    Policy -. "decision support only" .-> Paper
 ```
-┌─────────────────────────────────────────────────────┐
-│  Layer 1: Frontend (React 19 SPA)                   │
-│  - Real-time 5D visualization                       │
-│  - Interactive dashboards                           │
-│  - Live price ticker                                │
-└─────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────┐
-│  Layer 2: Real-Time Pipeline (Node.js)              │
-│  - Socket.io WebSocket broadcasting                 │
-│  - Redis pub/sub and caching                        │
-│  - High-frequency polling (10s intervals)           │
-└─────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────┐
-│  Layer 3: Context + Quant Research Engine           │
-│  - Technical 5D and perception 5D features          │
-│  - 8D historical regime state                       │
-│  - KNN-conditioned moving-block Monte Carlo         │
-└─────────────────────────────────────────────────────┘
-                         ↓
-┌─────────────────────────────────────────────────────┐
-│  Layer 4: Data Persistence                          │
-│  - MongoDB (user, orders, holdings, candles)        │
-│  - Exact in-memory FAISS regime search              │
-│  - Redis cache (real-time prices)                   │
-└─────────────────────────────────────────────────────┘
-```
+
+The solid paths are live runtime data flows. The dashed path is deliberately not an execution path: an agent result is **decision support**, and the user must place any paper trade manually. There is no real-money broker integration in the implemented architecture.
+
+The four operational boundaries are:
+
+1. **Presentation:** the React SPA renders market state, research diagnostics, portfolio state, and streamed progress.
+2. **Application:** Express owns authentication, API validation, WebSocket/SSE transport, scheduling, and paper-account operations.
+3. **Research:** the isolated Python framework builds point-in-time features, selects comparable regimes, simulates a return distribution, and applies the research-only policy gate.
+4. **Persistence:** MongoDB is the system of record, Redis holds ephemeral real-time state, and the exact regime index is rebuilt in process from leakage-safe history.
 
 ---
 
